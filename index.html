@@ -48,15 +48,14 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 .mobile-card input,.mobile-card textarea,.mobile-card select{-webkit-user-select:text;user-select:text;}
 .mobile-card.overdue{border-left:3px solid #e2445c;}
 .mobile-card.done{opacity:0.55;}
-.mobile-input-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e6e9ef;padding:12px 20px;z-index:9999;box-shadow:0 -4px 20px rgba(0,0,0,0.1);flex-direction:column;gap:10px;}
-.mobile-input-bar.open{display:flex;}
-@media(min-width:701px){.mobile-input-bar.open{flex-direction:row;align-items:center;padding:12px 24px;gap:12px;}
-.mobile-input-bar.open .bar-row-wrap{display:flex;align-items:center;gap:8px;flex:1;}
-}
 .bar-input{flex:1;border:1.5px solid #e6e9ef;border-radius:8px;padding:10px 14px;font-family:inherit;font-size:16px;color:#323338;outline:none;background:#f5f6f8;}
 .bar-input:focus{border-color:#0073ea;background:#fff;}
 .bar-add{background:#0073ea;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
 .bar-cancel{background:none;border:none;color:#c5c7d4;font-size:24px;cursor:pointer;padding:0 4px;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+/* Mobile add modal */
+.add-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9998;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;}
+.add-modal{background:#fff;border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:600px;animation:slideUp 0.25s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .nav-tab{background:none;border:none;border-bottom:2px solid transparent;padding:10px 14px;font-family:inherit;font-size:13px;font-weight:600;color:#676879;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
 .nav-tab.active{color:#0073ea;border-bottom-color:#0073ea;}
 .nav-tab:hover{color:#323338;}
@@ -638,7 +637,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
 });
 
 // ── Group Section ──
-function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,showWho,filter,members,onDeleteGroup,onRenameGroup}){
+function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,showWho,filter,members,onDeleteGroup,onRenameGroup,newTask,onCommitNewTask,onCancelNewTask,onUpdateNewTask}){
   const[collapsed,setCollapsed]=useState(false);
   const[editingName,setEditingName]=useState(false);
   const[groupNameVal,setGroupNameVal]=useState(group.label);
@@ -703,7 +702,46 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
               }
             </tbody>
           </table>
-          {filter==="all"&&<div style={{borderTop:"1px solid #e6e9ef"}}><button className="add-btn" onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button></div>}
+          {filter==="all"&&<>
+            {newTask?.group===group.id&&(
+              <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+                <colgroup>
+                  <col style={{width:24}}/>{showWho&&<col style={{width:cols.who}}/>}<col/>
+                  <col style={{width:cols.status}}/><col style={{width:cols.priority}}/><col style={{width:cols.due}}/>
+                  <col style={{width:cols.duration}}/><col style={{width:cols.recurrence}}/><col style={{width:cols.notes}}/><col style={{width:36}}/>
+                </colgroup>
+                <tbody>
+                  <tr style={{background:"#f0f6ff",borderBottom:"1px solid #e6e9ef",borderLeft:`3px solid ${group.color}`}}>
+                    <td style={{width:24,padding:"0 4px",verticalAlign:"middle",borderRight:"1px solid #e6e9ef"}}/>
+                    {showWho&&<td style={{width:cols.who,padding:0,borderRight:"1px solid #e6e9ef",verticalAlign:"middle"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:42}}>
+                        <AssigneePill value={newTask.assignee} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)onCommitNewTask(f=>"assignee",m.uid);})}/>
+                      </div>
+                    </td>}
+                    <td style={{borderRight:"1px solid #e6e9ef",padding:"0 10px",verticalAlign:"middle"}}>
+                      <input autoFocus placeholder="Task name… (Enter to save, Esc to cancel)"
+                        style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:14,background:"transparent",color:"#323338"}}
+                        onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){onCommitNewTask(e.target.value);}if(e.key==="Escape")onCancelNewTask();}}
+                        onBlur={e=>{if(e.target.value.trim())onCommitNewTask(e.target.value);else onCancelNewTask();}}/>
+                    </td>
+                    <td style={{padding:0,borderRight:"1px solid #e6e9ef",verticalAlign:"middle"}}>
+                      <InlineSelect value={newTask.status} options={STATUS_OPTIONS} onChange={v=>onUpdateNewTask("status",v)}/>
+                    </td>
+                    <td style={{padding:0,borderRight:"1px solid #e6e9ef",verticalAlign:"middle"}}>
+                      <InlineSelect value={newTask.priority} options={PRIORITY_OPTIONS} onChange={v=>onUpdateNewTask("priority",v)}/>
+                    </td>
+                    <td style={{borderRight:"1px solid #e6e9ef",padding:"0 10px",verticalAlign:"middle"}} colSpan={4}>
+                      <span style={{fontSize:12,color:"#c5c7d4"}}>Press Enter to save</span>
+                    </td>
+                    <td style={{verticalAlign:"middle",textAlign:"center"}}>
+                      <button onClick={onCancelNewTask} style={{background:"none",border:"none",cursor:"pointer",color:"#c5c7d4",fontSize:17,padding:"0 8px"}}>×</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+            <div style={{borderTop:"1px solid #e6e9ef"}}><button className="add-btn" onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button></div>
+          </>}
         </div>
         <div className="mobile-only" style={{padding:"10px 12px"}}>
           {groupTasks.length===0&&<div className="empty-state"><svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="8" y="8" width="32" height="32" rx="4" stroke="#c5c7d4" strokeWidth="2"/><path d="M16 24h16M16 30h10" stroke="#c5c7d4" strokeWidth="2" strokeLinecap="round"/><path d="M16 18h16" stroke="#c5c7d4" strokeWidth="2" strokeLinecap="round"/></svg><span style={{fontSize:13}}>No tasks yet</span></div>}
@@ -728,30 +766,39 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
               </div>)}
             </div>
           );})()}
-          {filter==="all"&&<button className="add-btn" style={{width:"100%",justifyContent:"center",border:"2px dashed #e6e9ef",borderRadius:10,marginTop:4}} onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button>}
+          {filter==="all"&&<button style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"12px",background:"none",border:"2px dashed #e6e9ef",borderRadius:10,marginTop:4,fontFamily:"inherit",fontSize:14,fontWeight:600,color:"#676879",cursor:"pointer"}} onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button>}
         </div>
       </>}
     </div>
   );
 }
 
-function MobileInputBar({newTask,onSave,onCancel,onUpdateNew,openMenu,members}){
-  const inputRef=useRef();const[name,setName]=useState("");
+// Mobile: modal sheet from bottom
+function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups}){
+  const inputRef=useRef();
+  const[name,setName]=useState("");
   useEffect(()=>{if(newTask){setName("");setTimeout(()=>inputRef.current?.focus(),80);}},[newTask?.id]);
   if(!newTask)return null;
   const save=()=>{const n=inputRef.current?.value?.trim()||name.trim();if(n)onSave(n);};
+  const group=groups.find(g=>g.id===newTask.group);
   return(
-    <div className="mobile-input-bar open">
-      <div className="bar-row-wrap" style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
-        <input ref={inputRef} className="bar-input" placeholder="Task name…" value={name} onChange={e=>setName(e.target.value)}
-          onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();save();}if(e.key==="Escape")onCancel();}}/>
-        <button className="bar-add" onTouchEnd={e=>{e.preventDefault();save();}} onClick={save}>Add</button>
-        <button className="bar-cancel" onTouchEnd={e=>{e.preventDefault();onCancel();}} onClick={onCancel}>×</button>
-      </div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-        <AssigneePill value={newTask.assignee} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)onUpdateNew("assignee",m.uid);})}/>
-        <StatusPill value={newTask.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("status",v))} large/>
-        <StatusPill value={newTask.priority} options={PRIORITY_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("priority",v))} large/>
+    <div className="add-modal-overlay" onClick={e=>{if(e.target.className==="add-modal-overlay")onCancel();}}>
+      <div className="add-modal">
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+          {group&&<div style={{width:10,height:10,borderRadius:"50%",background:group.color,flexShrink:0}}/>}
+          <span style={{fontWeight:700,fontSize:15,color:"#323338"}}>Add to {group?.label||"group"}</span>
+          <button onClick={onCancel} style={{marginLeft:"auto",background:"none",border:"none",color:"#c5c7d4",fontSize:22,cursor:"pointer",lineHeight:1,padding:0}}>×</button>
+        </div>
+        <input ref={inputRef} className="bar-input" placeholder="Task name…" value={name}
+          onChange={e=>setName(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();save();}if(e.key==="Escape")onCancel();}}
+          style={{marginBottom:12,width:"100%"}}/>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:16}}>
+          {members.length>1&&<AssigneePill value={newTask.assignee} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)onUpdateNew("assignee",m.uid);})}/>}
+          <StatusPill value={newTask.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("status",v))} large/>
+          <StatusPill value={newTask.priority} options={PRIORITY_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("priority",v))} large/>
+        </div>
+        <button className="bar-add" onClick={save} onTouchEnd={e=>{e.preventDefault();save();}} style={{width:"100%",borderRadius:10,padding:13,fontSize:16}}>Add Task</button>
       </div>
     </div>
   );
@@ -1016,7 +1063,9 @@ function App(){
             onDragStart={onDragStart} onDragEnter={onDragEnter} onDragEnd={onDragEnd}
             onDropEmpty={onDropEmpty} onAddTask={addTask} sort={sort} onSort={onSort}
             cols={cols} onResize={onResize} showWho={showWho} filter={filter} members={members}
-            onDeleteGroup={deleteGroup} onRenameGroup={renameGroup}/>
+            onDeleteGroup={deleteGroup} onRenameGroup={renameGroup}
+            newTask={newTask} onCommitNewTask={commitNewTask} onCancelNewTask={()=>setNewTask(null)}
+            onUpdateNewTask={(f,v)=>setNewTask(t=>({...t,[f]:v}))}/>
         ))}
         {/* Add group */}
         {filter==="all"&&<div style={{padding:"8px 16px 16px"}}>
@@ -1040,8 +1089,8 @@ function App(){
         </div>}
       </div>
 
-      <MobileInputBar newTask={newTask} onSave={commitNewTask} onCancel={()=>setNewTask(null)}
-        onUpdateNew={(f,v)=>setNewTask(t=>({...t,[f]:v}))} openMenu={openMenu} members={members}/>
+      {isMob&&<AddModal newTask={newTask} onSave={commitNewTask} onCancel={()=>setNewTask(null)}
+        onUpdateNew={(f,v)=>setNewTask(t=>({...t,[f]:v}))} openMenu={openMenu} members={members} groups={groups}/>}
 
       {toast&&<div className="toast">{toast}</div>}
     </div>
