@@ -379,11 +379,14 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
 });
 
 // ── Mobile Card ──
-const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showWho,groupColor}){
+const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showWho,groupColor,onDragStart,onDragEnter,onDragEnd,isDragging,isDropTarget}){
   const[editing,setEditing]=useState(false);
   const[nameVal,setNameVal]=useState(task.name);
   const[expanded,setExpanded]=useState(false);
+  const[holding,setHolding]=useState(false);
   const inputRef=useRef();
+  const cardRef=useRef();
+  const holdTimer=useRef();
   const taskUser=resolveUser(task.assignee);
   const overdue=isOverdue(task);
   const rel=formatRelDate(task.dueDate);
@@ -391,9 +394,36 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
   useEffect(()=>{if(editing)inputRef.current?.focus();},[editing]);
   const saveName=()=>{setEditing(false);if(nameVal.trim()!==task.name)upd("name",nameVal.trim()||task.name);};
 
+  // Touch drag
+  const onTouchStart=e=>{
+    if(editing)return;
+    holdTimer.current=setTimeout(()=>{
+      setHolding(true);
+      if(navigator.vibrate)navigator.vibrate(40);
+      onDragStart(task.id);
+    },400);
+  };
+  const onTouchMove=e=>{
+    if(!holding){clearTimeout(holdTimer.current);return;}
+    e.preventDefault();
+    const touch=e.touches[0];
+    const el=document.elementFromPoint(touch.clientX,touch.clientY);
+    const card=el?.closest("[data-task-id]");
+    if(card&&card.dataset.taskId!==task.id){
+      onDragEnter(card.dataset.taskId, card.dataset.groupId);
+    }
+  };
+  const onTouchEnd=e=>{
+    clearTimeout(holdTimer.current);
+    if(holding){setHolding(false);onDragEnd();}
+  };
+
   return(
-    <div className={`mobile-card${overdue?" overdue":""}${task.status==="Done"?" done":""}`}
-      style={{borderLeft:`3px solid ${groupColor}`}}>
+    <div ref={cardRef} data-task-id={task.id} data-group-id={groupColor}
+      className={`mobile-card${overdue?" overdue":""}${task.status==="Done"?" done":""}`}
+      style={{borderLeft:`3px solid ${groupColor}`,opacity:isDragging?0.4:1,transform:isDropTarget?"translateY(-2px)":"none",boxShadow:isDropTarget?`0 4px 12px ${groupColor}44`:"none",transition:"opacity 0.15s,transform 0.15s,box-shadow 0.15s",border:isDropTarget?`2px solid ${groupColor}`:"1px solid #e6e9ef",cursor:holding?"grabbing":"default"}}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px"}}>Drag to reorder</div>}
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
         {showWho&&<AssigneePill value={taskUser.id} onOpen={md=>openMenu(md,v=>upd("assignee",resolveUser(v).id))}/>}
         {editing
@@ -498,7 +528,12 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
           {groupTasks.length===0&&<div className="empty-state"><svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="8" y="8" width="32" height="32" rx="4" stroke="#c5c7d4" strokeWidth="2"/><path d="M16 24h16M16 30h10" stroke="#c5c7d4" strokeWidth="2" strokeLinecap="round"/><path d="M16 18h16" stroke="#c5c7d4" strokeWidth="2" strokeLinecap="round"/></svg><span style={{fontSize:13}}>No tasks yet</span></div>}
           {groupTasks.map(task=>(
             <MobileCard key={task.id} task={task} showWho={showWho} groupColor={group.color}
-              onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onDelete} openMenu={openMenu}/>
+              onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onDelete} openMenu={openMenu}
+              isDragging={dragState.draggingId===task.id}
+              isDropTarget={dragState.overId===task.id&&dragState.draggingId!==task.id}
+              onDragStart={onDragStart}
+              onDragEnter={(id,grp)=>onDragEnter(id,group.id)}
+              onDragEnd={onDragEnd}/>
           ))}
           {filter==="all"&&<button className="add-btn" style={{width:"100%",justifyContent:"center",border:"2px dashed #e6e9ef",borderRadius:10,marginTop:4}} onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button>}
         </div>
