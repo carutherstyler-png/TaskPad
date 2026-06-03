@@ -593,17 +593,20 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
             </React.Fragment>
           ))}
           {/* Bottom drop zone - allows dropping after last card */}
-          {dragState.draggingId&&(
-            <div data-task-id="__bottom__" data-group-id={group.id}
-              style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,border:`2px dashed ${dragState.overGroup===group.id&&dragState.overId==="__bottom__"?"#0073ea":"transparent"}`,transition:"border-color 0.15s",marginTop:2}}>
-              {dragState.overId==="__bottom__"&&dragState.draggingId&&(
-                <div style={{height:4,width:"100%",background:"#0073ea",borderRadius:2,boxShadow:"0 0 0 2px #fff, 0 0 0 4px #0073ea, 0 2px 8px rgba(0,115,234,0.5)",position:"relative"}}>
-                  <div style={{position:"absolute",left:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
-                  <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
-                </div>
-              )}
-            </div>
-          )}
+          {dragState.draggingId&&(()=>{
+            const isActiveBottom=dragState.overId==="__bottom__"&&dragState.overGroup===group.id;
+            return(
+              <div data-task-id="__bottom__" data-group-id={group.id}
+                style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,marginTop:2}}>
+                {isActiveBottom&&(
+                  <div style={{height:4,width:"100%",background:"#0073ea",borderRadius:2,boxShadow:"0 0 0 2px #fff, 0 0 0 4px #0073ea, 0 2px 8px rgba(0,115,234,0.5)",position:"relative"}}>
+                    <div style={{position:"absolute",left:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
+                    <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {filter==="all"&&<button className="add-btn" style={{width:"100%",justifyContent:"center",border:"2px dashed #e6e9ef",borderRadius:10,marginTop:4}} onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button>}
         </div>
       </>}
