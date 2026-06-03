@@ -43,12 +43,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 .user-btn{border:none;border-radius:20px;padding:6px 12px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px;-webkit-tap-highlight-color:transparent;}
 .add-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;cursor:pointer;color:#676879;font-size:13px;font-weight:500;background:none;border:none;font-family:inherit;transition:color 0.15s;}
 .add-btn:hover{color:#0073ea;}
-.mobile-card{background:#fff;border-radius:10px;border:1px solid #e6e9ef;padding:12px 14px;margin-bottom:8px;animation:rowIn 0.18s ease both;position:relative;overflow:hidden;transition:transform 0.2s;}
+.mobile-card{background:#fff;border-radius:10px;border:1px solid #e6e9ef;padding:12px 14px;margin-bottom:8px;animation:rowIn 0.18s ease both;position:relative;overflow:hidden;transition:transform 0.2s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 .mobile-card.overdue{border-left:3px solid #e2445c;}
 .mobile-card.done{opacity:0.55;}
 .mobile-input-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e6e9ef;padding:10px 12px;z-index:9999;box-shadow:0 -4px 20px rgba(0,0,0,0.1);flex-direction:column;gap:8px;}
 .mobile-input-bar.open{display:flex;}
-.bar-input{flex:1;border:1.5px solid #e6e9ef;border-radius:8px;padding:10px 14px;font-family:inherit;font-size:16px;color:#323338;outline:none;background:#f5f6f8;}
+.bar-input{flex:1;border:1.5px solid #e6e9ef;border-radius:8px;padding:10px 14px;font-family:inherit;font-size:16px;color:#323338;outline:none;background:#f5f6f8;}.mobile-card input,.mobile-card textarea,.mobile-card select{-webkit-user-select:text;user-select:text;}
 .bar-input:focus{border-color:#0073ea;background:#fff;}
 .bar-add{background:#0073ea;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
 .bar-cancel{background:none;border:none;color:#c5c7d4;font-size:24px;cursor:pointer;padding:0 4px;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
@@ -404,12 +404,18 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
     const handleTouchStart=e=>{
       if(editing)return;
       startY=e.touches[0].clientY;
+      // Prevent text selection during hold
+      const preventSelect=e=>e.preventDefault();
+      document.addEventListener("selectstart",preventSelect);
       holdTimer.current=setTimeout(()=>{
         holdingRef.current=true;
         setHolding(true);
         if(navigator.vibrate)navigator.vibrate(50);
         onDragStart(task.id);
+        document.removeEventListener("selectstart",preventSelect);
       },400);
+      // Clean up if touch ends before hold fires
+      card.addEventListener("touchend",()=>document.removeEventListener("selectstart",preventSelect),{once:true});
     };
 
     const handleTouchMove=e=>{
