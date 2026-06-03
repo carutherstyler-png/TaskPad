@@ -12,6 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -23,7 +24,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 @keyframes flash{0%{background:#e6f7ff}100%{background:transparent}}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-@keyframes swipeHint{0%{transform:translateX(0)}50%{transform:translateX(-8px)}100%{transform:translateX(0)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .row-anim{animation:rowIn 0.18s ease both;}
 .row-flash{animation:flash 0.6s ease;}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#323338;color:#fff;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);animation:toastIn 0.3s ease;z-index:99998;white-space:nowrap;}
@@ -44,11 +45,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 .add-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;cursor:pointer;color:#676879;font-size:13px;font-weight:500;background:none;border:none;font-family:inherit;transition:color 0.15s;}
 .add-btn:hover{color:#0073ea;}
 .mobile-card{background:#fff;border-radius:10px;border:1px solid #e6e9ef;padding:12px 14px;margin-bottom:8px;animation:rowIn 0.18s ease both;position:relative;overflow:hidden;transition:transform 0.2s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+.mobile-card input,.mobile-card textarea,.mobile-card select{-webkit-user-select:text;user-select:text;}
 .mobile-card.overdue{border-left:3px solid #e2445c;}
 .mobile-card.done{opacity:0.55;}
 .mobile-input-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e6e9ef;padding:10px 12px;z-index:9999;box-shadow:0 -4px 20px rgba(0,0,0,0.1);flex-direction:column;gap:8px;}
 .mobile-input-bar.open{display:flex;}
-.bar-input{flex:1;border:1.5px solid #e6e9ef;border-radius:8px;padding:10px 14px;font-family:inherit;font-size:16px;color:#323338;outline:none;background:#f5f6f8;}.mobile-card input,.mobile-card textarea,.mobile-card select{-webkit-user-select:text;user-select:text;}
+.bar-input{flex:1;border:1.5px solid #e6e9ef;border-radius:8px;padding:10px 14px;font-family:inherit;font-size:16px;color:#323338;outline:none;background:#f5f6f8;}
 .bar-input:focus{border-color:#0073ea;background:#fff;}
 .bar-add{background:#0073ea;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
 .bar-cancel{background:none;border:none;color:#c5c7d4;font-size:24px;cursor:pointer;padding:0 4px;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
@@ -56,9 +58,23 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 .nav-tab.active{color:#0073ea;border-bottom-color:#0073ea;}
 .nav-tab:hover{color:#323338;}
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;color:#c5c7d4;gap:12px;}
-.empty-state svg{opacity:0.4;}
 .resize-handle{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;}
 .resize-handle:hover{background:rgba(0,115,234,0.2);}
+/* Auth */
+.auth-card{background:#fff;border-radius:16px;padding:36px;width:100%;max-width:420px;box-shadow:0 4px 32px rgba(0,0,0,0.10);animation:fadeIn 0.4s ease;}
+.auth-input{width:100%;border:1.5px solid #e6e9ef;border-radius:8px;padding:11px 14px;font-family:inherit;font-size:15px;color:#323338;outline:none;transition:border-color 0.15s;margin-bottom:12px;}
+.auth-input:focus{border-color:#0073ea;}
+.auth-btn{width:100%;background:#0073ea;color:#fff;border:none;border-radius:8px;padding:12px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background 0.15s;margin-bottom:10px;}
+.auth-btn:hover{background:#0060c0;}
+.auth-btn.google{background:#fff;color:#323338;border:1.5px solid #e6e9ef;display:flex;align-items:center;justify-content:center;gap:10px;}
+.auth-btn.google:hover{background:#f5f6f8;}
+.auth-link{background:none;border:none;color:#0073ea;font-family:inherit;font-size:13px;cursor:pointer;padding:0;}
+.auth-link:hover{text-decoration:underline;}
+.auth-error{background:#fce8ec;color:#e2445c;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;}
+/* Board selector */
+.board-card{background:#fff;border-radius:12px;border:1.5px solid #e6e9ef;padding:18px 20px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:14px;margin-bottom:10px;}
+.board-card:hover{border-color:#0073ea;box-shadow:0 2px 12px rgba(0,115,234,0.1);}
+.board-card.active{border-color:#0073ea;background:#f0f6ff;}
 @media(max-width:700px){
   .desktop-only{display:none !important;}
   .mobile-only{display:block !important;}
@@ -90,6 +106,8 @@ const FIREBASE_CONFIG={
 };
 firebase.initializeApp(FIREBASE_CONFIG);
 const db=firebase.firestore();
+const auth=firebase.auth();
+const googleProvider=new firebase.auth.GoogleAuthProvider();
 
 const STATUS_OPTIONS=[
   {label:"Not Started",color:"#c4c4c4",bg:"#f0f0f0"},
@@ -105,32 +123,34 @@ const PRIORITY_OPTIONS=[
 ];
 const REC_UNITS=["Minutes","Hours","Days","Weeks","Months"];
 const DUR_UNITS=["mins","hrs","days"];
-const GROUPS=[
+const DEFAULT_GROUPS=[
   {id:"home",label:"Home",color:"#0073ea"},
   {id:"ferry",label:"Ferry",color:"#9b59b6"},
 ];
-const USERS=[
-  {id:"tyler",label:"Tyler",color:"#0073ea",initials:"T"},
-  {id:"melissa",label:"Melissa",color:"#e2445c",initials:"M"},
-  {id:"both",label:"Both",color:"#00c875",initials:"TM"},
-];
+const MEMBER_COLORS=["#0073ea","#e2445c","#00c875","#9b59b6","#fdab3d","#579bfc"];
 
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
-function resolveUser(id){return USERS.find(u=>u.id===id)||USERS.find(u=>u.label===id)||USERS[2];}
+function resolveUser(id,members){
+  if(!members)return{id,label:id,color:"#c5c7d4",initials:"?"};
+  const m=members.find(m=>m.uid===id);
+  if(!m)return{id,label:"Unknown",color:"#c5c7d4",initials:"?"};
+  const parts=(m.displayName||m.email||"?").split(" ");
+  const initials=parts.length>1?parts[0][0]+parts[1][0]:parts[0].slice(0,2);
+  return{id:m.uid,label:m.displayName||m.email,color:m.color||"#0073ea",initials:initials.toUpperCase()};
+}
 function addDays(ds,d){const dt=new Date(ds);dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
 function nextDue(due,num,unit){
   if(!due||!num||num==="0")return due;
-  const n=parseInt(num)||1;
-  const d=new Date(due);
-  if(unit==="Days"){d.setDate(d.getDate()+n);}
-  else if(unit==="Weeks"){d.setDate(d.getDate()+n*7);}
-  else if(unit==="Months"){d.setMonth(d.getMonth()+n);}
+  const n=parseInt(num)||1;const d=new Date(due);
+  if(unit==="Days")d.setDate(d.getDate()+n);
+  else if(unit==="Weeks")d.setDate(d.getDate()+n*7);
+  else if(unit==="Months")d.setMonth(d.getMonth()+n);
   return d.toISOString().slice(0,10);
 }
 function formatRelDate(ds){
   if(!ds)return null;
-  const today=new Date(); today.setHours(0,0,0,0);
-  const d=new Date(ds); d.setHours(0,0,0,0);
+  const today=new Date();today.setHours(0,0,0,0);
+  const d=new Date(ds);d.setHours(0,0,0,0);
   const diff=Math.round((d-today)/(1000*60*60*24));
   if(diff===0)return{label:"Today",color:"#e2445c"};
   if(diff===1)return{label:"Tomorrow",color:"#fdab3d"};
@@ -144,16 +164,20 @@ function priorityOrder(p){return{Critical:0,High:1,Medium:2,Low:3}[p]??99;}
 function statusOrder(s){return{"Not Started":0,"In Progress":1,Stuck:2,Done:3}[s]??99;}
 function durToMins(t){const n=parseFloat(t.durNum)||0;if(t.durUnit==="hrs")return n*60;if(t.durUnit==="days")return n*1440;return n;}
 function recToDays(t){const n=parseFloat(t.recNum)||0;const u=t.recUnit||"Days";if(u==="Minutes")return n/1440;if(u==="Hours")return n/24;if(u==="Weeks")return n*7;if(u==="Months")return n*30;return n;}
-function exportCSV(tasks){
+function exportCSV(tasks,members){
   const headers=["Name","Status","Priority","Due Date","Duration","Recurrence","Group","Assignee","Notes"];
-  const rows=tasks.map(t=>[t.name,t.status,t.priority,t.dueDate||"",t.durNum?`${t.durNum} ${t.durUnit}`:"",t.recNum?`${t.recNum} ${t.recUnit}`:"",t.group,resolveUser(t.assignee).label,t.notes||""].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(","));
+  const rows=tasks.map(t=>[t.name,t.status,t.priority,t.dueDate||"",t.durNum?`${t.durNum} ${t.durUnit}`:"",t.recNum?`${t.recNum} ${t.recUnit}`:"",t.group,resolveUser(t.assignee,members).label,t.notes||""].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(","));
   const csv=[headers.join(","),...rows].join("\n");
-  const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="mytasks.csv";a.click();
+  const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="taskpad.csv";a.click();
 }
 
-async function saveTask(task){await db.collection("tasks").doc(task.id).set(task);}
-async function deleteTaskDb(id){await db.collection("tasks").doc(id).delete();}
-async function saveTasks(list){const b=db.batch();list.forEach(t=>b.set(db.collection("tasks").doc(t.id),t));await b.commit();}
+// ── Firebase helpers ──
+function boardRef(boardId){return db.collection("boards").doc(boardId);}
+function tasksRef(boardId){return db.collection("boards").doc(boardId).collection("tasks");}
+function membersRef(boardId){return db.collection("boards").doc(boardId).collection("members");}
+async function saveTask(boardId,task){await tasksRef(boardId).doc(task.id).set(task);}
+async function deleteTaskDb(boardId,id){await tasksRef(boardId).doc(id).delete();}
+async function saveTasks(boardId,list){const b=db.batch();list.forEach(t=>b.set(tasksRef(boardId).doc(t.id),t));await b.commit();}
 
 // ── Global Popover ──
 let _setGlobalPop=null;
@@ -163,7 +187,7 @@ function GlobalPopover(){
   const inputRef=useRef();
   const[num,setNum]=useState("");
   const[unit,setUnit]=useState("");
-  useEffect(()=>{if(pop){setNum(pop.num&&pop.num!=="0"?pop.num:"");setUnit(pop.unit||pop.defaultUnit);setTimeout(()=>inputRef.current?.focus(),50);}},[ pop?.id]);
+  useEffect(()=>{if(pop){setNum(pop.num&&pop.num!=="0"?pop.num:"");setUnit(pop.unit||pop.defaultUnit);setTimeout(()=>inputRef.current?.focus(),50);}},[pop?.id]);
   useEffect(()=>{
     if(!pop)return;
     const h=e=>{const el=document.getElementById("gpop");if(el&&!el.contains(e.target)){pop.onSave(num,unit);setPop(null);}};
@@ -189,14 +213,12 @@ function GlobalPopover(){
     </div>
   );
 }
-
-function openPopover(triggerEl,{num,unit,defaultUnit,units,color,onSave}){
-  const r=triggerEl.getBoundingClientRect();
-  const popH=52;
-  const spaceBelow=window.innerHeight-r.bottom;
+function openPopover(el,opts){
+  const r=el.getBoundingClientRect();
+  const popH=52;const spaceBelow=window.innerHeight-r.bottom;
   const top=spaceBelow>=popH+10?r.bottom+6:r.top-popH-6;
   const left=Math.min(Math.max(r.left,8),window.innerWidth-240);
-  if(_setGlobalPop)_setGlobalPop({id:Math.random(),top,left,color,num:num||"",unit:unit||defaultUnit,defaultUnit,units,onSave});
+  if(_setGlobalPop)_setGlobalPop({id:Math.random(),top,left,...opts});
 }
 
 // ── FloatingMenu ──
@@ -218,7 +240,7 @@ function FloatingMenu({menu,onClose}){
           style={{fontWeight:item.label===menu.current?700:400,background:item.label===menu.current?"#f5f6f8":"#fff"}}
           onMouseDown={e=>{e.preventDefault();menu.onSelect(item.label);onClose();}}>
           {item.dot&&<span style={{width:10,height:10,borderRadius:"50%",background:item.dot,flexShrink:0,display:"inline-block"}}/>}
-          {item.avatar&&<Avatar userId={item.avatar} size={18}/>}
+          {item.avatar&&<Avatar user={item.avatar}/>}
           {item.label}
         </div>
       ))}
@@ -226,9 +248,9 @@ function FloatingMenu({menu,onClose}){
   );
 }
 
-function Avatar({userId,size=24}){
-  const u=resolveUser(userId);
-  return(<div title={u.label} style={{width:size,height:size,borderRadius:"50%",background:u.color+"22",border:`1.5px solid ${u.color}55`,color:u.color,fontSize:Math.floor(size*0.38),fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",userSelect:"none",flexShrink:0}}>{u.initials}</div>);
+function Avatar({user,size=24}){
+  if(!user)return null;
+  return(<div title={user.label} style={{width:size,height:size,borderRadius:"50%",background:user.color+"22",border:`1.5px solid ${user.color}55`,color:user.color,fontSize:Math.floor(size*0.38),fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",userSelect:"none",flexShrink:0}}>{user.initials}</div>);
 }
 
 function StatusPill({value,options,onOpen,large}){
@@ -238,10 +260,14 @@ function StatusPill({value,options,onOpen,large}){
   return(<div ref={ref} className={`pill${large?" large":""}`} style={{background:opt.bg,color:opt.color,border:`1.5px solid ${opt.color}33`}} onClick={open}><span style={{width:large?"9px":"7px",height:large?"9px":"7px",borderRadius:"50%",background:opt.color,display:"inline-block",flexShrink:0}}/>{opt.label}</div>);
 }
 
-function AssigneePill({value,onOpen}){
+function AssigneePill({value,members,onOpen}){
   const ref=useRef();
-  const open=()=>{const r=ref.current.getBoundingClientRect();onOpen({top:r.bottom+4,left:r.left,current:resolveUser(value).label,items:USERS.map(u=>({label:u.label,avatar:u.id}))});};
-  return(<div ref={ref} onClick={open} style={{cursor:"pointer"}}><Avatar userId={value} size={26}/></div>);
+  const user=resolveUser(value,members);
+  const open=()=>{
+    const r=ref.current.getBoundingClientRect();
+    onOpen({top:r.bottom+4,left:r.left,current:user.label,items:members.map(m=>{const u=resolveUser(m.uid,members);return{label:u.label,avatar:u};})});
+  };
+  return(<div ref={ref} onClick={onOpen?open:undefined} style={{cursor:onOpen?"pointer":"default"}}><Avatar user={user} size={26}/></div>);
 }
 
 function InlineSelect({value,options,onChange}){
@@ -275,10 +301,10 @@ function SortHdr({label,field,sort,onSort,style,resizeCol,onResize}){
   const ref=useRef();
   const startResize=e=>{
     e.preventDefault();e.stopPropagation();
-    const startX=e.clientX;const startW=ref.current.parentElement.offsetWidth;
-    const onMove=ev=>onResize(resizeCol,Math.max(50,startW+(ev.clientX-startX)));
-    const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);};
-    document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);
+    const sx=e.clientX;const sw=ref.current.parentElement.offsetWidth;
+    const om=ev=>onResize(resizeCol,Math.max(50,sw+(ev.clientX-sx)));
+    const ou=()=>{document.removeEventListener("mousemove",om);document.removeEventListener("mouseup",ou);};
+    document.addEventListener("mousemove",om);document.addEventListener("mouseup",ou);
   };
   return(
     <th className="hdr sortable" style={{...style,position:"relative"}} onClick={()=>onSort(field)}>
@@ -290,96 +316,233 @@ function SortHdr({label,field,sort,onSort,style,resizeCol,onResize}){
   );
 }
 
-// ── Notes panel ──
-function NotesPanel({task,onUpdate,onClose}){
-  const[val,setVal]=useState(task.notes||"");
-  const save=()=>onUpdate({notes:val});
+// ── Auth Screen ──
+function AuthScreen({onAuth}){
+  const[mode,setMode]=useState("login"); // login | signup
+  const[email,setEmail]=useState("");
+  const[password,setPassword]=useState("");
+  const[name,setName]=useState("");
+  const[error,setError]=useState("");
+  const[loading,setLoading]=useState(false);
+
+  const handleEmail=async e=>{
+    e.preventDefault();setError("");setLoading(true);
+    try{
+      if(mode==="login"){
+        await auth.signInWithEmailAndPassword(email,password);
+      } else {
+        const cred=await auth.createUserWithEmailAndPassword(email,password);
+        await cred.user.updateProfile({displayName:name});
+      }
+    } catch(err){
+      setError(err.message.replace("Firebase: ","").replace(/\(auth\/.*\)/,"").trim());
+    }
+    setLoading(false);
+  };
+
+  const handleGoogle=async()=>{
+    setError("");setLoading(true);
+    try{ await auth.signInWithPopup(googleProvider); }
+    catch(err){ setError(err.message.replace("Firebase: ","").trim()); }
+    setLoading(false);
+  };
+
   return(
-    <div style={{padding:"10px 14px",borderTop:"1px solid #e6e9ef",background:"#fafbfc",animation:"rowIn 0.15s ease"}}>
-      <textarea value={val} onChange={e=>setVal(e.target.value)} onBlur={save}
-        placeholder="Add notes…"
-        style={{width:"100%",border:"1px solid #e6e9ef",borderRadius:6,padding:"8px 10px",fontFamily:"inherit",fontSize:13,color:"#323338",outline:"none",resize:"vertical",minHeight:64,background:"#fff",lineHeight:1.5}}
-        onFocus={e=>e.target.style.borderColor="#0073ea"} onBlur={e=>{e.target.style.borderColor="#e6e9ef";save();}}/>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#f0f4ff,#f5f6f8)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{marginBottom:32,textAlign:"center"}}>
+        <div style={{width:56,height:56,borderRadius:14,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+          <svg width="28" height="28" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
+        </div>
+        <div style={{fontSize:26,fontWeight:700,color:"#323338"}}>Task Pad</div>
+        <div style={{fontSize:14,color:"#676879",marginTop:4}}>Organize your tasks, together</div>
+      </div>
+      <div className="auth-card">
+        <h2 style={{fontSize:20,fontWeight:700,color:"#323338",marginBottom:20}}>{mode==="login"?"Welcome back":"Create account"}</h2>
+        {error&&<div className="auth-error">{error}</div>}
+        <form onSubmit={handleEmail}>
+          {mode==="signup"&&<input className="auth-input" placeholder="Full name" value={name} onChange={e=>setName(e.target.value)} required/>}
+          <input className="auth-input" type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required/>
+          <input className="auth-input" type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6}/>
+          <button type="submit" className="auth-btn" disabled={loading}>{loading?"Please wait…":mode==="login"?"Sign in":"Create account"}</button>
+        </form>
+        <button className="auth-btn google" onClick={handleGoogle} disabled={loading}>
+          <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+        <div style={{textAlign:"center",marginTop:16,fontSize:13,color:"#676879"}}>
+          {mode==="login"?"Don't have an account? ":"Already have an account? "}
+          <button className="auth-link" onClick={()=>{setMode(mode==="login"?"signup":"login");setError("");}}>
+            {mode==="login"?"Sign up":"Sign in"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Board Selector ──
+function BoardSelector({user,onSelect}){
+  const[boards,setBoards]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[creating,setCreating]=useState(false);
+  const[newName,setNewName]=useState("");
+  const[inviteCode,setInviteCode]=useState("");
+  const[joiningCode,setJoiningCode]=useState("");
+  const[error,setError]=useState("");
+
+  useEffect(()=>{
+    // Listen to boards where user is a member
+    const unsub=db.collectionGroup("members").where("uid","==",user.uid).onSnapshot(async snap=>{
+      const boardIds=[...new Set(snap.docs.map(d=>d.ref.parent.parent.id))];
+      if(boardIds.length===0){setBoards([]);setLoading(false);return;}
+      const boardDocs=await Promise.all(boardIds.map(id=>boardRef(id).get()));
+      setBoards(boardDocs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+    return unsub;
+  },[user.uid]);
+
+  const createBoard=async()=>{
+    if(!newName.trim())return;
+    setLoading(true);
+    const id=genId();
+    const code=Math.random().toString(36).slice(2,8).toUpperCase();
+    const batch=db.batch();
+    batch.set(boardRef(id),{name:newName.trim(),createdBy:user.uid,createdAt:Date.now(),inviteCode:code,groups:DEFAULT_GROUPS});
+    batch.set(membersRef(id).doc(user.uid),{uid:user.uid,displayName:user.displayName||user.email,email:user.email,color:MEMBER_COLORS[0],role:"admin",joinedAt:Date.now()});
+    // Migrate existing tasks if this is Tyler or Melissa's first board
+    await batch.commit();
+    setCreating(false);setNewName("");
+    onSelect({id,name:newName.trim()});
+  };
+
+  const joinBoard=async()=>{
+    if(!joiningCode.trim())return;
+    setError("");
+    const code=joiningCode.trim().toUpperCase();
+    const snap=await db.collection("boards").where("inviteCode","==",code).get();
+    if(snap.empty){setError("Invalid invite code.");return;}
+    const boardDoc=snap.docs[0];
+    const color=MEMBER_COLORS[Math.floor(Math.random()*MEMBER_COLORS.length)];
+    await membersRef(boardDoc.id).doc(user.uid).set({uid:user.uid,displayName:user.displayName||user.email,email:user.email,color,role:"member",joinedAt:Date.now()});
+    onSelect({id:boardDoc.id,name:boardDoc.data().name});
+  };
+
+  if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#676879"}}>Loading…</div>;
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f5f6f8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{width:"100%",maxWidth:480}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:28}}>
+          <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
+          </div>
+          <span style={{fontSize:20,fontWeight:700,color:"#323338"}}>Task Pad</span>
+          <button onClick={()=>auth.signOut()} style={{marginLeft:"auto",background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 12px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>Sign out</button>
+        </div>
+
+        <div style={{fontSize:13,color:"#676879",marginBottom:12,fontWeight:600}}>YOUR BOARDS</div>
+
+        {boards.map(b=>(
+          <div key={b.id} className="board-card" onClick={()=>onSelect(b)}>
+            <div style={{width:40,height:40,borderRadius:10,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width="20" height="20" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:"#323338",fontSize:15}}>{b.name}</div>
+              <div style={{fontSize:12,color:"#676879",marginTop:2}}>Invite code: <span style={{fontWeight:700,letterSpacing:1}}>{b.inviteCode}</span></div>
+            </div>
+            <span style={{color:"#c5c7d4",fontSize:20}}>›</span>
+          </div>
+        ))}
+
+        {boards.length===0&&<div style={{textAlign:"center",color:"#c5c7d4",padding:"24px 0",fontSize:14}}>No boards yet — create one below!</div>}
+
+        {creating?(
+          <div style={{background:"#fff",borderRadius:12,border:"1.5px solid #0073ea",padding:"16px"}}>
+            <input className="auth-input" placeholder="Board name (e.g. Our Home)" value={newName} onChange={e=>setNewName(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")createBoard();}} autoFocus style={{marginBottom:10}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button className="auth-btn" onClick={createBoard} style={{marginBottom:0}}>Create</button>
+              <button onClick={()=>setCreating(false)} style={{background:"#f5f6f8",border:"none",borderRadius:8,padding:"10px 16px",fontFamily:"inherit",fontSize:14,cursor:"pointer",color:"#676879"}}>Cancel</button>
+            </div>
+          </div>
+        ):(
+          <button className="board-card" style={{border:"2px dashed #e6e9ef",justifyContent:"center",gap:8,color:"#676879"}} onClick={()=>setCreating(true)}>
+            <span style={{fontSize:22,lineHeight:1,color:"#0073ea"}}>+</span>
+            <span style={{fontWeight:600}}>Create new board</span>
+          </button>
+        )}
+
+        <div style={{marginTop:16,background:"#fff",borderRadius:12,border:"1.5px solid #e6e9ef",padding:16}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#676879",marginBottom:10}}>JOIN WITH INVITE CODE</div>
+          {error&&<div className="auth-error">{error}</div>}
+          <div style={{display:"flex",gap:8}}>
+            <input className="auth-input" placeholder="Enter 6-digit code" value={joiningCode} onChange={e=>setJoiningCode(e.target.value.toUpperCase())}
+              style={{marginBottom:0,flex:1,letterSpacing:2}} maxLength={6}/>
+            <button className="auth-btn" onClick={joinBoard} style={{marginBottom:0,width:"auto",padding:"0 20px"}}>Join</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── Desktop Task Row ──
-const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,isDropTarget,onDragStart,onDragEnter,onDragEnd,showWho,groupColor}){
+const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,isDropTarget,onDragStart,onDragEnter,onDragEnd,showWho,groupColor,members}){
   const[editing,setEditing]=useState(false);
   const[nameVal,setNameVal]=useState(task.name);
-  
   const[flashing,setFlashing]=useState(false);
   const inputRef=useRef();
-  const taskUser=resolveUser(task.assignee);
+  const taskUser=resolveUser(task.assignee,members);
   const overdue=isOverdue(task);
   const rel=formatRelDate(task.dueDate);
   const upd=(f,v)=>onUpdate(typeof f==="string"?{[f]:v}:f);
-
   useEffect(()=>{if(editing)inputRef.current?.focus();},[editing]);
   const saveName=()=>{setEditing(false);if(nameVal.trim()!==task.name)upd("name",nameVal.trim()||task.name);};
-
-  // Flash on update
   const prevStatus=useRef(task.status);
   useEffect(()=>{if(prevStatus.current!==task.status){setFlashing(true);setTimeout(()=>setFlashing(false),600);}prevStatus.current=task.status;},[task.status]);
-
   const td={borderBottom:"1px solid #e6e9ef",borderRight:"1px solid #e6e9ef",padding:"0 10px",height:42,verticalAlign:"middle"};
-  const leftBorder=overdue?"3px solid #e2445c":`3px solid ${groupColor}`;
-
   return(
-    <>
-    <tr className={`row-anim${flashing?" row-flash":""}${isDragging?" ":""}`}
-      style={{background:isDragging?"#f0f6ff":isDropTarget?"#eaf2ff":task.status==="Done"?"#fafafa":"#fff",opacity:isDragging?0.4:task.status==="Done"?0.6:1,borderTop:isDropTarget?"2px solid #0073ea":undefined,transition:"background 0.2s,opacity 0.2s",borderLeft:leftBorder}}
+    <tr className={`row-anim${flashing?" row-flash":""}`}
+      style={{background:isDragging?"#f0f6ff":isDropTarget?"#eaf2ff":task.status==="Done"?"#fafafa":"#fff",opacity:isDragging?0.4:task.status==="Done"?0.6:1,borderTop:isDropTarget?"2px solid #0073ea":undefined,borderLeft:`3px solid ${overdue?"#e2445c":groupColor}`,transition:"background 0.2s,opacity 0.2s"}}
       draggable onDragStart={e=>{if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA"){e.preventDefault();return;}onDragStart(task.id);}}
       onDragEnter={()=>onDragEnter(task.id)} onDragOver={e=>e.preventDefault()} onDragEnd={onDragEnd}>
       <td style={{...td,width:24,textAlign:"center",cursor:"grab",color:"#c5c7d4",fontSize:12,userSelect:"none",borderLeft:"none",padding:"0 4px"}}>⠿</td>
-      {showWho&&<td style={{...td,width:38,padding:0}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%"}}><AssigneePill value={taskUser.id} onOpen={md=>openMenu(md,v=>upd("assignee",resolveUser(v).id))}/></div></td>}
+      {showWho&&<td style={{...td,width:38,padding:0}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%"}}><AssigneePill value={taskUser.id} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)upd("assignee",m.uid);})}/></div></td>}
       <td style={{...td}}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-        
-          {editing
-            ?<input ref={inputRef} value={nameVal} onChange={e=>setNameVal(e.target.value)}
-                onBlur={saveName} onKeyDown={e=>{if(e.key==="Enter")saveName();if(e.key==="Escape"){setNameVal(task.name);setEditing(false);}}}
-                style={{flex:1,border:"none",outline:"none",fontFamily:"inherit",fontSize:14,background:"transparent"}}/>
-            :<span onClick={()=>setEditing(true)} style={{fontSize:14,cursor:"text",flex:1,textDecoration:task.status==="Done"?"line-through":"none",color:task.status==="Done"?"#c5c7d4":"#323338"}}>
-                {task.name||<span style={{color:"#c5c7d4"}}>Untitled</span>}
-              </span>
-          }
-        </div>
+        {editing
+          ?<input ref={inputRef} value={nameVal} onChange={e=>setNameVal(e.target.value)}
+              onBlur={saveName} onKeyDown={e=>{if(e.key==="Enter")saveName();if(e.key==="Escape"){setNameVal(task.name);setEditing(false);}}}
+              style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:14,background:"transparent"}}/>
+          :<span onClick={()=>setEditing(true)} style={{fontSize:14,cursor:"text",display:"block",textDecoration:task.status==="Done"?"line-through":"none",color:task.status==="Done"?"#c5c7d4":"#323338"}}>
+              {task.name||<span style={{color:"#c5c7d4"}}>Untitled</span>}
+            </span>
+        }
       </td>
       <td style={{...td,padding:0}}><InlineSelect value={task.status} options={STATUS_OPTIONS} onChange={v=>upd("status",v)}/></td>
       <td style={{...td,padding:0}}><InlineSelect value={task.priority} options={PRIORITY_OPTIONS} onChange={v=>upd("priority",v)}/></td>
-      <td style={{...td,cursor:"pointer"}} title={task.dueDate}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <input type="date" value={task.dueDate||""} onChange={e=>upd("dueDate",e.target.value)}
-            style={{border:"none",outline:"none",background:"transparent",fontFamily:"inherit",fontSize:12,color:overdue?"#e2445c":"#323338",cursor:"pointer",width:0,opacity:0,position:"absolute"}}
-            id={`date-${task.id}`}/>
-          <span onClick={()=>document.getElementById(`date-${task.id}`).showPicker?document.getElementById(`date-${task.id}`).showPicker():document.getElementById(`date-${task.id}`).click()}
-            style={{fontSize:12,fontWeight:600,color:rel?rel.color:"#c5c7d4",cursor:"pointer",whiteSpace:"nowrap"}}>
-            {rel?rel.label:"No date"}
-          </span>
-        </div>
-      </td>
       <td style={{...td}}>
-        <PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})}/>
+        <input type="date" value={task.dueDate||""} onChange={e=>upd("dueDate",e.target.value)}
+          style={{border:"none",outline:"none",background:"transparent",fontFamily:"inherit",fontSize:12,color:overdue?"#e2445c":"#323338",cursor:"pointer",width:0,opacity:0,position:"absolute"}} id={`date-${task.id}`}/>
+        <span onClick={()=>{const el=document.getElementById(`date-${task.id}`);el.showPicker?el.showPicker():el.click();}}
+          style={{fontSize:12,fontWeight:600,color:rel?rel.color:"#c5c7d4",cursor:"pointer",whiteSpace:"nowrap"}}>
+          {rel?rel.label:"No date"}
+        </span>
       </td>
-      <td style={{...td}}>
-        <PopoverPill num={task.recNum} unit={task.recUnit} defaultUnit="Days" units={REC_UNITS} color="#0073ea" bg="#eaf2ff" border="1.5px solid #0073ea33" icon="↻" placeholder="Recurrence" onSave={(n,u)=>upd({recNum:n,recUnit:u})}/>
-      </td>
+      <td style={{...td}}><PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})}/></td>
+      <td style={{...td}}><PopoverPill num={task.recNum} unit={task.recUnit} defaultUnit="Days" units={REC_UNITS} color="#0073ea" bg="#eaf2ff" border="1.5px solid #0073ea33" icon="↻" placeholder="Recurrence" onSave={(n,u)=>upd({recNum:n,recUnit:u})}/></td>
       <td style={{...td,borderRight:"none",padding:"2px 8px"}}>
-        <textarea value={task.notes||""} onChange={e=>upd("notes",e.target.value)}
-          placeholder="Notes…"
-          style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:12,color:"#323338",resize:"none",height:36,background:"transparent",lineHeight:1.4,padding:"4px 0",verticalAlign:"middle"}}/>
+        <textarea value={task.notes||""} onChange={e=>upd("notes",e.target.value)} placeholder="Notes…"
+          style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:12,color:"#323338",resize:"none",height:36,background:"transparent",lineHeight:1.4,padding:"4px 0"}}/>
       </td>
       <td style={{borderBottom:"1px solid #e6e9ef",width:36,textAlign:"center",verticalAlign:"middle"}}><DelBtn onDelete={()=>onDelete(task.id)}/></td>
     </tr>
-
-    </>
   );
 });
 
 // ── Mobile Card ──
-const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showWho,groupColor,onDragStart,onDragEnter,onDragEnd,isDragging,isDropTarget}){
+const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showWho,groupColor,members,onDragStart,onDragEnter,onDragEnd,isDragging,isDropTarget}){
   const[editing,setEditing]=useState(false);
   const[nameVal,setNameVal]=useState(task.name);
   const[expanded,setExpanded]=useState(false);
@@ -388,7 +551,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
   const cardRef=useRef();
   const holdTimer=useRef();
   const holdingRef=useRef(false);
-  const taskUser=resolveUser(task.assignee);
+  const taskUser=resolveUser(task.assignee,members);
   const overdue=isOverdue(task);
   const rel=formatRelDate(task.dueDate);
   const upd=(f,v)=>onUpdate(typeof f==="string"?{[f]:v}:f);
@@ -396,85 +559,48 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
   const saveName=()=>{setEditing(false);if(nameVal.trim()!==task.name)upd("name",nameVal.trim()||task.name);};
 
   useEffect(()=>{
-    const card=cardRef.current;
-    if(!card)return;
-
+    const card=cardRef.current;if(!card)return;
     let startY=0;
-
     const handleTouchStart=e=>{
       if(editing)return;
       startY=e.touches[0].clientY;
-      // Prevent text selection during hold
       const preventSelect=e=>e.preventDefault();
       document.addEventListener("selectstart",preventSelect);
       holdTimer.current=setTimeout(()=>{
-        holdingRef.current=true;
-        setHolding(true);
+        holdingRef.current=true;setHolding(true);
         if(navigator.vibrate)navigator.vibrate(50);
         onDragStart(task.id);
         document.removeEventListener("selectstart",preventSelect);
       },400);
-      // Clean up if touch ends before hold fires
       card.addEventListener("touchend",()=>document.removeEventListener("selectstart",preventSelect),{once:true});
     };
-
     const handleTouchMove=e=>{
-      // Cancel hold if user scrolls before timer fires
-      if(!holdingRef.current){
-        const dy=Math.abs(e.touches[0].clientY-startY);
-        if(dy>8){clearTimeout(holdTimer.current);}
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
+      if(!holdingRef.current){const dy=Math.abs(e.touches[0].clientY-startY);if(dy>8)clearTimeout(holdTimer.current);return;}
+      e.preventDefault();e.stopPropagation();
       const touch=e.touches[0];
-      // Hide the dragging card temporarily to find element underneath
       card.style.visibility="hidden";
       const el=document.elementFromPoint(touch.clientX,touch.clientY);
       card.style.visibility="visible";
       const target=el?.closest("[data-task-id]");
-      if(target&&target.dataset.taskId!==task.id){
-        onDragEnter(target.dataset.taskId, target.dataset.groupId);
-      }
+      if(target&&target.dataset.taskId!==task.id)onDragEnter(target.dataset.taskId,target.dataset.groupId);
     };
-
     const handleTouchEnd=e=>{
       clearTimeout(holdTimer.current);
-      if(holdingRef.current){
-        holdingRef.current=false;
-        setHolding(false);
-        onDragEnd();
-      }
+      if(holdingRef.current){holdingRef.current=false;setHolding(false);onDragEnd();}
     };
-
     card.addEventListener("touchstart",handleTouchStart,{passive:true});
     card.addEventListener("touchmove",handleTouchMove,{passive:false});
     card.addEventListener("touchend",handleTouchEnd,{passive:true});
-    return()=>{
-      card.removeEventListener("touchstart",handleTouchStart);
-      card.removeEventListener("touchmove",handleTouchMove);
-      card.removeEventListener("touchend",handleTouchEnd);
-    };
+    return()=>{card.removeEventListener("touchstart",handleTouchStart);card.removeEventListener("touchmove",handleTouchMove);card.removeEventListener("touchend",handleTouchEnd);};
   },[task.id,editing,onDragStart,onDragEnter,onDragEnd]);
 
   return(
     <div ref={cardRef} data-task-id={task.id} data-group-id={groupColor}
       className={`mobile-card${overdue?" overdue":""}${task.status==="Done"?" done":""}`}
-      style={{
-        borderLeft:`3px solid ${groupColor}`,
-        opacity:isDragging?0.35:1,
-        boxShadow:holding?"0 8px 24px rgba(0,0,0,0.15)":"",
-        border:"1px solid #e6e9ef",
-        transition:"opacity 0.15s,box-shadow 0.15s",
-        cursor:holding?"grabbing":"default",
-        position:"relative",
-        zIndex:holding?999:1,
-        marginBottom:8,
-      }}>
-
-    {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px",zIndex:10}}>↕ Reordering</div>}
+      style={{borderLeft:`3px solid ${groupColor}`,opacity:isDragging?0.35:1,boxShadow:holding?"0 8px 24px rgba(0,0,0,0.15)":"",border:"1px solid #e6e9ef",transition:"opacity 0.15s,box-shadow 0.15s",cursor:holding?"grabbing":"default",position:"relative",zIndex:holding?999:1,marginBottom:8}}>
+      {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px",zIndex:10}}>↕ Reordering</div>}
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-        {showWho&&<AssigneePill value={taskUser.id} onOpen={md=>openMenu(md,v=>upd("assignee",resolveUser(v).id))}/>}
+        {showWho&&<AssigneePill value={taskUser.id} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)upd("assignee",m.uid);})}/>}
         {editing
           ?<input ref={inputRef} value={nameVal} onChange={e=>setNameVal(e.target.value)} onBlur={saveName} onKeyDown={e=>{if(e.key==="Enter")saveName();}}
               style={{flex:1,border:"none",outline:"none",fontFamily:"inherit",fontSize:15,fontWeight:600,background:"transparent",padding:0}}/>
@@ -486,10 +612,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:expanded?8:0}}>
         <StatusPill value={task.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>upd("status",v))} large/>
         <StatusPill value={task.priority} options={PRIORITY_OPTIONS} onOpen={md=>openMenu(md,v=>upd("priority",v))} large/>
-        <button onClick={()=>setExpanded(e=>!e)}
-          style={{background:"none",border:"1px solid #e6e9ef",borderRadius:20,padding:"4px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer",marginLeft:"auto"}}>
-          {expanded?"Less ▴":"More ▾"}
-        </button>
+        <button onClick={()=>setExpanded(e=>!e)} style={{background:"none",border:"1px solid #e6e9ef",borderRadius:20,padding:"4px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer",marginLeft:"auto"}}>{expanded?"Less ▴":"More ▾"}</button>
       </div>
       {expanded&&<>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
@@ -501,8 +624,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
           <PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})} large/>
           <PopoverPill num={task.recNum} unit={task.recUnit} defaultUnit="Days" units={REC_UNITS} color="#0073ea" bg="#eaf2ff" border="1.5px solid #0073ea33" icon="↻" placeholder="Recurrence" onSave={(n,u)=>upd({recNum:n,recUnit:u})} large/>
         </div>
-        <textarea value={task.notes||""} onChange={e=>upd("notes",e.target.value)}
-          placeholder="Notes…"
+        <textarea value={task.notes||""} onChange={e=>upd("notes",e.target.value)} placeholder="Notes…"
           style={{width:"100%",border:"1px solid #e6e9ef",borderRadius:6,padding:"8px 10px",fontFamily:"inherit",fontSize:13,color:"#323338",outline:"none",resize:"none",minHeight:56,background:"#fafafa",lineHeight:1.5}}
           onFocus={e=>e.target.style.borderColor="#0073ea"} onBlur={e=>e.target.style.borderColor="#e6e9ef"}/>
       </>}
@@ -511,11 +633,10 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
 });
 
 // ── Group Section ──
-function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,activeUser,filter}){
+function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,showWho,filter,members,onDragEndFinal}){
   const[collapsed,setCollapsed]=useState(false);
   const groupTasks=tasks.filter(t=>t.group===group.id);
   const doneCount=groupTasks.filter(t=>t.status==="Done").length;
-  const showWho=activeUser==="both";
   const bs={borderRight:"1px solid #e6e9ef"};
   if(filter!=="all"&&groupTasks.length===0)return null;
 
@@ -528,7 +649,6 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
         <span style={{marginLeft:"auto",fontSize:12,color:"#c5c7d4",display:"inline-block",transform:collapsed?"rotate(-90deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▾</span>
       </div>
       {!collapsed&&<>
-        {/* Desktop */}
         <div className="desktop-only">
           <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
             <colgroup>
@@ -546,67 +666,50 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
                 <SortHdr label="Due" field="dueDate" sort={sort} onSort={onSort} style={{...bs}} resizeCol="due" onResize={onResize}/>
                 <SortHdr label="Duration" field="duration" sort={sort} onSort={onSort} style={{...bs}} resizeCol="duration" onResize={onResize}/>
                 <SortHdr label="Recurrence" field="recurrence" sort={sort} onSort={onSort} style={{...bs}} resizeCol="recurrence" onResize={onResize}/>
-                <th className="hdr" style={{...bs,position:"relative"}}>Notes<div className="resize-handle" onMouseDown={e=>{e.preventDefault();e.stopPropagation();const sx=e.clientX;const sw=cols.notes;const om=ev=>onResize("notes",Math.max(60,sw+(ev.clientX-sx)));const ou=()=>{document.removeEventListener("mousemove",om);document.removeEventListener("mouseup",ou);};document.addEventListener("mousemove",om);document.addEventListener("mouseup",ou);}} onClick={e=>e.stopPropagation()}/></th>
+                <th className="hdr" style={{...bs,position:"relative"}}>Notes
+                  <div className="resize-handle" onMouseDown={e=>{e.preventDefault();e.stopPropagation();const sx=e.clientX;const sw=cols.notes;const om=ev=>onResize("notes",Math.max(60,sw+(ev.clientX-sx)));const ou=()=>{document.removeEventListener("mousemove",om);document.removeEventListener("mouseup",ou);};document.addEventListener("mousemove",om);document.addEventListener("mouseup",ou);}} onClick={e=>e.stopPropagation()}/>
+                </th>
                 <th className="hdr" style={{borderRight:"none"}}/>
               </tr>
             </thead>
             <tbody>
               {groupTasks.length===0
-                ?<tr><td colSpan={showWho?10:9}>
-                    <div onDragOver={e=>e.preventDefault()} onDrop={()=>onDropEmpty(group.id)}
-                      style={{padding:32,color:"#c5c7d4",fontSize:13,textAlign:"center",background:dragState.overGroup===group.id?"#f0f6ff":"transparent"}}>
-                      {dragState.draggingId?"Drop here ↓":"No tasks yet — click Add task below"}
-                    </div>
-                  </td></tr>
+                ?<tr><td colSpan={showWho?10:9}><div onDragOver={e=>e.preventDefault()} onDrop={()=>onDropEmpty(group.id)} style={{padding:32,color:"#c5c7d4",fontSize:13,textAlign:"center",background:dragState.overGroup===group.id?"#f0f6ff":"transparent"}}>{dragState.draggingId?"Drop here ↓":"No tasks yet"}</div></td></tr>
                 :groupTasks.map(task=>(
-                  <TaskRow key={task.id} task={task}
-                    isDragging={dragState.draggingId===task.id}
+                  <TaskRow key={task.id} task={task} isDragging={dragState.draggingId===task.id}
                     isDropTarget={dragState.overId===task.id&&dragState.draggingId!==task.id}
-                    groupColor={group.color} showWho={showWho}
-                    onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onDelete}
-                    openMenu={openMenu} onDragStart={onDragStart}
-                    onDragEnter={id=>onDragEnter(id,group.id)} onDragEnd={onDragEnd}/>
+                    groupColor={group.color} showWho={showWho} members={members}
+                    onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onDelete} openMenu={openMenu}
+                    onDragStart={onDragStart} onDragEnter={id=>onDragEnter(id,group.id)} onDragEnd={onDragEnd}/>
                 ))
               }
             </tbody>
           </table>
           {filter==="all"&&<div style={{borderTop:"1px solid #e6e9ef"}}><button className="add-btn" onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button></div>}
         </div>
-        {/* Mobile */}
         <div className="mobile-only" style={{padding:"10px 12px"}}>
           {groupTasks.length===0&&<div className="empty-state"><svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="8" y="8" width="32" height="32" rx="4" stroke="#c5c7d4" strokeWidth="2"/><path d="M16 24h16M16 30h10" stroke="#c5c7d4" strokeWidth="2" strokeLinecap="round"/><path d="M16 18h16" stroke="#c5c7d4" strokeWidth="2" strokeLinecap="round"/></svg><span style={{fontSize:13}}>No tasks yet</span></div>}
           {groupTasks.map((task,idx)=>(
             <React.Fragment key={task.id}>
-              {dragState.overId===task.id&&dragState.draggingId!==task.id&&(
-                <div style={{height:4,background:"#0073ea",borderRadius:2,margin:"0 0 2px 0",boxShadow:"0 0 0 2px #fff, 0 0 0 4px #0073ea, 0 2px 8px rgba(0,115,234,0.5)",position:"relative",zIndex:20}}>
-                  <div style={{position:"absolute",left:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff",boxShadow:"0 0 4px rgba(0,115,234,0.6)"}}/>
-                  <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff",boxShadow:"0 0 4px rgba(0,115,234,0.6)"}}/>
-                </div>
-              )}
-              <MobileCard task={task} showWho={showWho} groupColor={group.color}
+              {(()=>{const isActiveBottom=dragState.overId===task.id&&dragState.draggingId!==task.id;return isActiveBottom?(
+                <div style={{height:4,background:"#0073ea",borderRadius:2,margin:"0 0 2px 0",boxShadow:"0 0 0 2px #fff,0 0 0 4px #0073ea,0 2px 8px rgba(0,115,234,0.5)",position:"relative",zIndex:20}}>
+                  <div style={{position:"absolute",left:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
+                  <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
+                </div>):null;})()}
+              <MobileCard task={task} showWho={showWho} groupColor={group.color} members={members}
                 onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onDelete} openMenu={openMenu}
-                isDragging={dragState.draggingId===task.id}
-                isDropTarget={false}
-                onDragStart={onDragStart}
-                onDragEnter={(id,grp)=>onDragEnter(id,group.id)}
-                onDragEnd={onDragEnd}/>
+                isDragging={dragState.draggingId===task.id} isDropTarget={false}
+                onDragStart={onDragStart} onDragEnter={(id,grp)=>onDragEnter(id,group.id)} onDragEnd={onDragEnd}/>
             </React.Fragment>
           ))}
-          {/* Bottom drop zone - allows dropping after last card */}
-          {dragState.draggingId&&(()=>{
-            const isActiveBottom=dragState.overId==="__bottom__"&&dragState.overGroup===group.id;
-            return(
-              <div data-task-id="__bottom__" data-group-id={group.id}
-                style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,marginTop:2}}>
-                {isActiveBottom&&(
-                  <div style={{height:4,width:"100%",background:"#0073ea",borderRadius:2,boxShadow:"0 0 0 2px #fff, 0 0 0 4px #0073ea, 0 2px 8px rgba(0,115,234,0.5)",position:"relative"}}>
-                    <div style={{position:"absolute",left:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
-                    <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {(()=>{const isActiveBottom=dragState.overId==="__bottom__"&&dragState.overGroup===group.id;return(
+            <div data-task-id="__bottom__" data-group-id={group.id} style={{height:40,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,marginTop:2}}>
+              {isActiveBottom&&(<div style={{height:4,width:"100%",background:"#0073ea",borderRadius:2,boxShadow:"0 0 0 2px #fff,0 0 0 4px #0073ea,0 2px 8px rgba(0,115,234,0.5)",position:"relative"}}>
+                <div style={{position:"absolute",left:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
+                <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
+              </div>)}
+            </div>
+          );})()}
           {filter==="all"&&<button className="add-btn" style={{width:"100%",justifyContent:"center",border:"2px dashed #e6e9ef",borderRadius:10,marginTop:4}} onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button>}
         </div>
       </>}
@@ -614,8 +717,7 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
   );
 }
 
-// ── Mobile Input Bar ──
-function MobileInputBar({newTask,onSave,onCancel,onUpdateNew,openMenu}){
+function MobileInputBar({newTask,onSave,onCancel,onUpdateNew,openMenu,members}){
   const inputRef=useRef();const[name,setName]=useState("");
   useEffect(()=>{if(newTask){setName("");setTimeout(()=>inputRef.current?.focus(),80);}},[newTask?.id]);
   if(!newTask)return null;
@@ -629,7 +731,7 @@ function MobileInputBar({newTask,onSave,onCancel,onUpdateNew,openMenu}){
         <button className="bar-cancel" onTouchEnd={e=>{e.preventDefault();onCancel();}} onClick={onCancel}>×</button>
       </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-        <AssigneePill value={newTask.assignee} onOpen={md=>openMenu(md,v=>onUpdateNew("assignee",resolveUser(v).id))}/>
+        <AssigneePill value={newTask.assignee} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)onUpdateNew("assignee",m.uid);})}/>
         <StatusPill value={newTask.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("status",v))} large/>
         <StatusPill value={newTask.priority} options={PRIORITY_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("priority",v))} large/>
       </div>
@@ -637,10 +739,13 @@ function MobileInputBar({newTask,onSave,onCancel,onUpdateNew,openMenu}){
   );
 }
 
-// ── App ──
+// ── Main App ──
 function App(){
+  const[authUser,setAuthUser]=useState(undefined); // undefined=loading
+  const[board,setBoard]=useState(null);
   const[tasks,setTasks]=useState([]);
-  const[activeUser,setActiveUser]=useState("tyler");
+  const[members,setMembers]=useState([]);
+  const[activeUserId,setActiveUserId]=useState(null);
   const[search,setSearch]=useState("");
   const[menu,setMenu]=useState(null);
   const[syncing,setSyncing]=useState(false);
@@ -649,21 +754,37 @@ function App(){
   const[drag,setDrag]=useState({draggingId:null,overId:null,overGroup:null});
   const[sort,setSort]=useState({field:null,dir:"asc"});
   const[cols,setCols]=useState({who:38,name:160,status:120,priority:108,due:100,duration:110,recurrence:130,notes:180});
-  const[filter,setFilter]=useState("all"); // all | today | overdue
+  const[filter,setFilter]=useState("all");
 
+  // Auth listener
   useEffect(()=>{
-    const unsub=db.collection("tasks").onSnapshot(snap=>{
-      setTasks(snap.docs.map(d=>({group:"home",assignee:"both",order:0,...d.data(),id:d.id})));
+    const unsub=auth.onAuthStateChanged(u=>{setAuthUser(u||null);if(u)setActiveUserId(u.uid);});
+    return unsub;
+  },[]);
+
+  // Board data listeners
+  useEffect(()=>{
+    if(!board)return;
+    const unsubTasks=tasksRef(board.id).onSnapshot(snap=>{
+      setTasks(snap.docs.map(d=>({group:"home",assignee:authUser?.uid||"",order:0,...d.data(),id:d.id})));
     });
-    // Keyboard shortcut
+    const unsubMembers=membersRef(board.id).onSnapshot(snap=>{
+      setMembers(snap.docs.map(d=>d.data()));
+    });
+    return()=>{unsubTasks();unsubMembers();};
+  },[board?.id]);
+
+  // Keyboard shortcut
+  useEffect(()=>{
+    if(!board)return;
     const onKey=e=>{
       if((e.key==="n"||e.key==="N")&&!e.target.matches("input,textarea,select")){
-        setNewTask({id:genId(),name:"",status:"Not Started",priority:"Medium",dueDate:"",recNum:"",recUnit:"Days",durNum:"",durUnit:"mins",group:"home",assignee:"tyler",order:Date.now()});
+        setNewTask({id:genId(),name:"",status:"Not Started",priority:"Medium",dueDate:"",recNum:"",recUnit:"Days",durNum:"",durUnit:"mins",group:"home",assignee:authUser?.uid||"",order:Date.now()});
       }
     };
     document.addEventListener("keydown",onKey);
-    return()=>{unsub();document.removeEventListener("keydown",onKey);};
-  },[]);
+    return()=>document.removeEventListener("keydown",onKey);
+  },[board,authUser]);
 
   const openMenu=useCallback((md,onSelect)=>setMenu({...md,onSelect}),[]);
   const closeMenu=useCallback(()=>setMenu(null),[]);
@@ -674,21 +795,23 @@ function App(){
     const updated={...task,...fields};
     if(fields.status==="Done"&&task.recNum&&task.recNum!=="0"&&task.recUnit){
       const rescheduled={...updated,status:"Not Started",dueDate:nextDue(task.dueDate,task.recNum,task.recUnit)};
-      setSyncing(true);await saveTask(rescheduled).finally(()=>setSyncing(false));
-      showToast("↻ Rescheduled to "+formatRelDate(rescheduled.dueDate)?.label);return;
+      setSyncing(true);await saveTask(board.id,rescheduled).finally(()=>setSyncing(false));
+      showToast("↻ Rescheduled to "+(formatRelDate(rescheduled.dueDate)?.label||rescheduled.dueDate));return;
     }
-    setSyncing(true);await saveTask(updated).finally(()=>setSyncing(false));
-  },[tasks,showToast]);
+    setSyncing(true);await saveTask(board.id,updated).finally(()=>setSyncing(false));
+  },[tasks,board,showToast]);
 
-  const deleteTask=useCallback(async id=>{setSyncing(true);await deleteTaskDb(id).finally(()=>setSyncing(false));},[]);
+  const deleteTask=useCallback(async id=>{setSyncing(true);await deleteTaskDb(board.id,id).finally(()=>setSyncing(false));},[board]);
+
   const addTask=useCallback(group=>{
-    const t={id:genId(),name:"",status:"Not Started",priority:"Medium",dueDate:"",recNum:"",recUnit:"Days",durNum:"",durUnit:"mins",group,assignee:activeUser==="both"?"both":activeUser,order:Date.now()};
-    setNewTask(t);
-    if(window.innerWidth>700){
-      // desktop inline new row — save immediately with empty name, user types inline
-    }
-  },[activeUser]);
-  const commitNewTask=useCallback(async name=>{if(!newTask||!name.trim())return;const t={...newTask,name:name.trim(),order:Date.now()};setNewTask(null);setSyncing(true);await saveTask(t).finally(()=>setSyncing(false));},[newTask]);
+    setNewTask({id:genId(),name:"",status:"Not Started",priority:"Medium",dueDate:"",recNum:"",recUnit:"Days",durNum:"",durUnit:"mins",group,assignee:authUser?.uid||"",order:Date.now()});
+  },[authUser]);
+
+  const commitNewTask=useCallback(async name=>{
+    if(!newTask||!name.trim())return;
+    const t={...newTask,name:name.trim(),order:Date.now()};
+    setNewTask(null);setSyncing(true);await saveTask(board.id,t).finally(()=>setSyncing(false));
+  },[newTask,board]);
 
   const onDragStart=useCallback(id=>setDrag({draggingId:id,overId:null,overGroup:null}),[]);
   const onDragEnter=useCallback((id,group)=>setDrag(s=>({...s,overId:id,overGroup:group})),[]);
@@ -699,9 +822,7 @@ function App(){
     const dragging=tasks.find(t=>t.id===draggingId);if(!dragging)return;
     let reordered;
     if(overId==="__bottom__"&&overGroup){
-      // Move to end of target group
-      const ng=overGroup;
-      const gt=tasks.filter(t=>t.group===ng&&t.id!==draggingId);
+      const ng=overGroup;const gt=tasks.filter(t=>t.group===ng&&t.id!==draggingId);
       gt.push({...dragging,group:ng});
       reordered=[...tasks.filter(t=>t.group!==ng&&t.id!==draggingId),...gt.map((t,i)=>({...t,order:i}))];
     } else if(overId&&overId!==draggingId){
@@ -712,14 +833,14 @@ function App(){
     } else if(overGroup&&overGroup!==dragging.group){
       reordered=tasks.map(t=>t.id===draggingId?{...t,group:overGroup}:t);
     } else return;
-    setSyncing(true);await saveTasks(reordered).finally(()=>setSyncing(false));
-  },[drag,tasks]);
+    setSyncing(true);await saveTasks(board.id,reordered).finally(()=>setSyncing(false));
+  },[drag,tasks,board]);
 
   const onDropEmpty=useCallback(async gid=>{
     if(!drag.draggingId)return;const task=tasks.find(t=>t.id===drag.draggingId);if(!task)return;
     setDrag({draggingId:null,overId:null,overGroup:null});
-    setSyncing(true);await saveTask({...task,group:gid}).finally(()=>setSyncing(false));
-  },[drag,tasks]);
+    setSyncing(true);await saveTask(board.id,{...task,group:gid}).finally(()=>setSyncing(false));
+  },[drag,tasks,board]);
 
   const onSort=useCallback(field=>setSort(s=>({field,dir:s.field===field&&s.dir==="asc"?"desc":"asc"})),[]);
   const onResize=useCallback((col,w)=>setCols(c=>({...c,[col]:w})),[]);
@@ -741,30 +862,33 @@ function App(){
     });
   },[tasks,sort]);
 
+  const groups=board?.groups||DEFAULT_GROUPS;
+
   const filtered=useMemo(()=>{
     const today=new Date();today.setHours(0,0,0,0);
     return sorted.filter(t=>{
-      const uid=resolveUser(t.assignee).id;
-      const vis=activeUser==="both"||uid==="both"||uid===activeUser;
-      if(!vis)return false;
+      const uid=t.assignee;
+      const vis=!activeUserId||activeUserId===uid||members.length<=1;
+      // In shared board show all unless filtered by user
       if(search&&!t.name.toLowerCase().includes(search.toLowerCase()))return false;
       if(filter==="today"){const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}
       if(filter==="overdue"){const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<today&&t.status!=="Done";}
       return true;
     });
-  },[sorted,activeUser,search,filter]);
+  },[sorted,activeUserId,search,filter,members]);
 
   const doneCount=useMemo(()=>tasks.filter(t=>t.status==="Done").length,[tasks]);
-  const todayCount=useMemo(()=>{
-    const today=new Date();today.setHours(0,0,0,0);
-    return tasks.filter(t=>{const uid=resolveUser(t.assignee).id;const vis=activeUser==="both"||uid==="both"||uid===activeUser;if(!vis)return false;const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}).length;
-  },[tasks,activeUser]);
-  const overdueCount=useMemo(()=>{
-    const today=new Date();today.setHours(0,0,0,0);
-    return tasks.filter(t=>{const uid=resolveUser(t.assignee).id;const vis=activeUser==="both"||uid==="both"||uid===activeUser;if(!vis)return false;const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<today&&t.status!=="Done";}).length;
-  },[tasks,activeUser]);
-
+  const todayCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}).length;},[tasks]);
+  const overdueCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<today&&t.status!=="Done";}).length;},[tasks]);
+  const showWho=members.length>1;
   const isMob=window.innerWidth<=700;
+
+  // Loading
+  if(authUser===undefined)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#676879",fontSize:15}}>Loading…</div>;
+  // Not logged in
+  if(!authUser)return<AuthScreen/>;
+  // No board selected
+  if(!board)return<BoardSelector user={authUser} onSelect={setBoard}/>;
 
   return(
     <div style={{minHeight:"100vh",background:"#f5f6f8"}}>
@@ -773,26 +897,37 @@ function App(){
 
       {/* Top bar */}
       <div className="top-bar" style={{background:"#fff",borderBottom:"1px solid #e6e9ef",padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"sticky",top:0,zIndex:100}}>
+        <button onClick={()=>setBoard(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#676879",fontSize:13,display:"flex",alignItems:"center",gap:4,fontFamily:"inherit",padding:0}}>
+          <span style={{fontSize:16}}>‹</span>
+        </button>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <div style={{width:26,height:26,borderRadius:6,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
           </div>
-          <span style={{fontWeight:700,fontSize:15,color:"#323338"}}>Task Pad</span>
+          <span style={{fontWeight:700,fontSize:15,color:"#323338"}}>{board.name}</span>
         </div>
         <span className={`sync-dot${syncing?" syncing":""}`} title={syncing?"Syncing…":"Synced"}/>
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:3,background:"#f5f6f8",borderRadius:24,padding:3,border:"1px solid #e6e9ef"}}>
-          {USERS.map(u=>{const active=activeUser===u.id;return(
-            <button key={u.id} className="user-btn" onClick={()=>setActiveUser(u.id)}
-              style={{background:active?u.color:"transparent",color:active?"#fff":"#676879",boxShadow:active?`0 2px 8px ${u.color}44`:"none"}}>
-              <div style={{width:16,height:16,borderRadius:"50%",background:active?"rgba(255,255,255,0.25)":u.color+"22",color:active?"#fff":u.color,fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{u.initials}</div>
-              <span className="user-label">{u.label}</span>
+        {/* Member switcher */}
+        {members.length>1&&(
+          <div style={{display:"flex",alignItems:"center",gap:3,background:"#f5f6f8",borderRadius:24,padding:3,border:"1px solid #e6e9ef",marginLeft:"auto"}}>
+            <button className="user-btn" onClick={()=>setActiveUserId(null)}
+              style={{background:!activeUserId?"#0073ea":"transparent",color:!activeUserId?"#fff":"#676879",fontSize:11,padding:"5px 10px"}}>
+              All
             </button>
-          );})}
-        </div>
+            {members.map(m=>{const u=resolveUser(m.uid,members);return(
+              <button key={m.uid} className="user-btn" onClick={()=>setActiveUserId(m.uid)}
+                style={{background:activeUserId===m.uid?u.color:"transparent",color:activeUserId===m.uid?"#fff":"#676879",boxShadow:activeUserId===m.uid?`0 2px 8px ${u.color}44`:"none",padding:"5px 8px"}}>
+                <div style={{width:16,height:16,borderRadius:"50%",background:activeUserId===m.uid?"rgba(255,255,255,0.25)":u.color+"22",color:activeUserId===m.uid?"#fff":u.color,fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{u.initials}</div>
+                <span className="user-label">{u.label.split(" ")[0]}</span>
+              </button>
+            );})}
+          </div>
+        )}
+        <button onClick={()=>auth.signOut()} style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:11,color:"#676879",cursor:"pointer",marginLeft:members.length<=1?"auto":"0"}}>Sign out</button>
       </div>
 
       {/* Nav tabs */}
-      <div style={{background:"#fff",borderBottom:"1px solid #e6e9ef",display:"flex",alignItems:"center",padding:"0 16px",gap:0}}>
+      <div style={{background:"#fff",borderBottom:"1px solid #e6e9ef",display:"flex",alignItems:"center",padding:"0 16px",gap:0,overflowX:"auto"}}>
         <button className={`nav-tab${filter==="all"?" active":""}`} onClick={()=>setFilter("all")}>All</button>
         <button className={`nav-tab${filter==="today"?" active":""}`} onClick={()=>setFilter("today")}>
           Due Today {todayCount>0&&<span style={{background:"#fdab3d",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:700,marginLeft:4}}>{todayCount}</span>}
@@ -800,18 +935,16 @@ function App(){
         <button className={`nav-tab${filter==="overdue"?" active":""}`} onClick={()=>setFilter("overdue")}>
           Overdue {overdueCount>0&&<span style={{background:"#e2445c",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:700,marginLeft:4}}>{overdueCount}</span>}
         </button>
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,padding:"6px 0"}}>
           <div style={{display:"flex",alignItems:"center",gap:7,background:"#f5f6f8",border:"1.5px solid #e6e9ef",borderRadius:6,padding:"5px 10px"}}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#c5c7d4" strokeWidth="1.5"/><path d="M10 10l2.5 2.5" stroke="#c5c7d4" strokeWidth="1.5" strokeLinecap="round"/></svg>
             <input placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}
-              style={{border:"none",outline:"none",fontFamily:"inherit",fontSize:13,color:"#323338",background:"transparent",width:120}}/>
+              style={{border:"none",outline:"none",fontFamily:"inherit",fontSize:13,color:"#323338",background:"transparent",width:100}}/>
           </div>
-          <button onClick={()=>exportCSV(tasks)} title="Export CSV"
-            style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer",whiteSpace:"nowrap"}}>
-            ↓ CSV
-          </button>
+          <button onClick={()=>exportCSV(tasks,members)} title="Export CSV"
+            style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>↓ CSV</button>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <div style={{width:80,height:5,background:"#e6e9ef",borderRadius:3,overflow:"hidden"}}>
+            <div style={{width:70,height:5,background:"#e6e9ef",borderRadius:3,overflow:"hidden"}}>
               <div style={{height:"100%",background:"#00c875",borderRadius:3,transition:"width 0.4s",width:tasks.length?`${(doneCount/tasks.length)*100}%`:"0%"}}/>
             </div>
             <span style={{fontSize:12,color:"#676879",fontWeight:500,whiteSpace:"nowrap"}}>{doneCount}/{tasks.length}</span>
@@ -825,20 +958,20 @@ function App(){
           <div className="empty-state" style={{padding:80}}>
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="28" stroke="#c5c7d4" strokeWidth="2"/><path d="M22 32l7 7 13-13" stroke="#00c875" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <span style={{fontSize:16,fontWeight:600,color:"#676879"}}>All caught up!</span>
-            <span style={{fontSize:13,color:"#c5c7d4"}}>{filter==="today"?"No tasks due today.":"No overdue tasks — great work!"}</span>
+            <span style={{fontSize:13,color:"#c5c7d4"}}>{filter==="today"?"No tasks due today.":"No overdue tasks."}</span>
           </div>
         )}
-        {GROUPS.map(g=>(
+        {groups.map(g=>(
           <GroupSection key={g.id} group={g} tasks={filtered} openMenu={openMenu}
             onUpdate={updateTask} onDelete={deleteTask} dragState={drag}
             onDragStart={onDragStart} onDragEnter={onDragEnter} onDragEnd={onDragEnd}
             onDropEmpty={onDropEmpty} onAddTask={addTask} sort={sort} onSort={onSort}
-            cols={cols} onResize={onResize} activeUser={activeUser} filter={filter}/>
+            cols={cols} onResize={onResize} showWho={showWho} filter={filter} members={members}/>
         ))}
       </div>
 
       <MobileInputBar newTask={isMob?newTask:null} onSave={commitNewTask} onCancel={()=>setNewTask(null)}
-        onUpdateNew={(f,v)=>setNewTask(t=>({...t,[f]:v}))} openMenu={openMenu}/>
+        onUpdateNew={(f,v)=>setNewTask(t=>({...t,[f]:v}))} openMenu={openMenu} members={members}/>
 
       {toast&&<div className="toast">{toast}</div>}
     </div>
@@ -849,7 +982,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 
 <script>
-const SW=`const CACHE='mytasks-v4';self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/'])));self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>caches.match('/')));});`;
+const SW=`const CACHE='taskpad-v1';self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/'])));self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>caches.match('/')));});`;
 if('serviceWorker'in navigator){const b=new Blob([SW],{type:'application/javascript'});navigator.serviceWorker.register(URL.createObjectURL(b),{scope:'/'}).catch(()=>{});}
 let dp=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;document.getElementById('ib').style.display='flex';});
@@ -857,14 +990,13 @@ function doI(){if(!dp)return;document.getElementById('ib').style.display='none';
 function doD(){document.getElementById('ib').style.display='none';}
 window.addEventListener('appinstalled',()=>{document.getElementById('ib').style.display='none';});
 </script>
-
 <div id="ib" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)">
-  <div style="background:#fff;border-radius:16px;padding:28px 24px;margin:24px;max-width:360px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;margin:24px;max-width:360px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;font-family:'Figtree',sans-serif">
     <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#0073ea,#9b59b6);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
       <svg width="32" height="32" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
     </div>
-    <div style="font-weight:700;font-size:20px;color:#323338;margin-bottom:8px;font-family:'Figtree',sans-serif">Install Task Pad</div>
-    <div style="font-size:14px;color:#676879;margin-bottom:24px;line-height:1.5;font-family:'Figtree',sans-serif">Add to your home screen for instant access.</div>
+    <div style="font-weight:700;font-size:20px;color:#323338;margin-bottom:8px">Install Task Pad</div>
+    <div style="font-size:14px;color:#676879;margin-bottom:24px;line-height:1.5">Add to your home screen for instant access.</div>
     <button onclick="doI()" style="display:block;width:100%;background:#0073ea;color:#fff;border:none;border-radius:10px;padding:14px;font-family:'Figtree',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px">Install App</button>
     <button onclick="doD()" style="display:block;width:100%;background:none;border:none;color:#676879;font-family:'Figtree',sans-serif;font-size:14px;cursor:pointer;padding:10px">Not now</button>
   </div>
