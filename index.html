@@ -123,10 +123,8 @@ const PRIORITY_OPTIONS=[
 ];
 const REC_UNITS=["Minutes","Hours","Days","Weeks","Months"];
 const DUR_UNITS=["mins","hrs","days"];
-const DEFAULT_GROUPS=[
-  {id:"home",label:"Home",color:"#0073ea"},
-  {id:"ferry",label:"Ferry",color:"#9b59b6"},
-];
+const DEFAULT_GROUPS=[];
+const GROUP_COLORS=["#0073ea","#9b59b6","#00c875","#e2445c","#fdab3d","#579bfc","#333333","#00d4d4"];
 const MEMBER_COLORS=["#0073ea","#e2445c","#00c875","#9b59b6","#fdab3d","#579bfc"];
 
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
@@ -637,8 +635,10 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
 });
 
 // ── Group Section ──
-function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,showWho,filter,members,onDragEndFinal}){
+function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,showWho,filter,members,onDeleteGroup,onRenameGroup}){
   const[collapsed,setCollapsed]=useState(false);
+  const[editingName,setEditingName]=useState(false);
+  const[groupNameVal,setGroupNameVal]=useState(group.label);
   const groupTasks=tasks.filter(t=>t.group===group.id);
   const doneCount=groupTasks.filter(t=>t.status==="Done").length;
   const bs={borderRight:"1px solid #e6e9ef"};
@@ -646,11 +646,22 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
 
   return(
     <div className="group-card" style={{marginBottom:8,borderTop:"1px solid #e6e9ef",borderBottom:"1px solid #e6e9ef",background:"#fff"}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:collapsed?"none":"1px solid #e6e9ef",cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:collapsed?"none":"1px solid #e6e9ef"}}>
         <div style={{width:11,height:11,borderRadius:"50%",background:group.color,flexShrink:0}}/>
-        <span style={{fontSize:14,fontWeight:700,color:"#323338"}}>{group.label}</span>
+        {editingName
+          ?<input autoFocus value={groupNameVal} onChange={e=>setGroupNameVal(e.target.value)}
+              onBlur={()=>{if(groupNameVal.trim()&&groupNameVal!==group.label)onRenameGroup(group.id,groupNameVal.trim());setEditingName(false);}}
+              onKeyDown={e=>{if(e.key==="Enter"&&groupNameVal.trim()){onRenameGroup(group.id,groupNameVal.trim());setEditingName(false);}if(e.key==="Escape")setEditingName(false);}}
+              style={{border:"none",outline:"none",fontFamily:"inherit",fontSize:14,fontWeight:700,color:"#323338",background:"transparent",width:120}}/>
+          :<span onDoubleClick={()=>{setGroupNameVal(group.label);setEditingName(true);}} style={{fontSize:14,fontWeight:700,color:"#323338",cursor:"pointer"}} title="Double-click to rename">{group.label}</span>
+        }
         <span style={{fontSize:12,color:"#c5c7d4",background:"#f5f6f8",borderRadius:10,padding:"1px 8px",fontWeight:600}}>{doneCount}/{groupTasks.length}</span>
-        <span style={{marginLeft:"auto",fontSize:12,color:"#c5c7d4",display:"inline-block",transform:collapsed?"rotate(-90deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▾</span>
+        <span onClick={()=>setCollapsed(c=>!c)} style={{marginLeft:"auto",fontSize:12,color:"#c5c7d4",display:"inline-block",transform:collapsed?"rotate(-90deg)":"rotate(0deg)",transition:"transform 0.2s",cursor:"pointer",padding:"0 4px"}}>▾</span>
+        <button onClick={()=>{if(groupTasks.length>0&&!confirm(`Delete "${group.label}" and its ${groupTasks.length} task(s)?`))return;onDeleteGroup(group.id);}}
+          style={{background:"none",border:"none",cursor:"pointer",color:"#c5c7d4",fontSize:14,padding:"0 2px",lineHeight:1,transition:"color 0.15s"}}
+          title="Delete group"
+          onMouseEnter={e=>e.currentTarget.style.color="#e2445c"}
+          onMouseLeave={e=>e.currentTarget.style.color="#c5c7d4"}>⊗</button>
       </div>
       {!collapsed&&<>
         <div className="desktop-only">
@@ -866,7 +877,38 @@ function App(){
     });
   },[tasks,sort]);
 
-  const groups=board?.groups||DEFAULT_GROUPS;
+  const groups=board?.groups||[];
+  const [addingGroup,setAddingGroup]=useState(false);
+  const [newGroupName,setNewGroupName]=useState("");
+
+  const addGroup=async()=>{
+    if(!newGroupName.trim())return;
+    const id=genId();
+    const color=GROUP_COLORS[groups.length%GROUP_COLORS.length];
+    const newGroups=[...groups,{id,label:newGroupName.trim(),color}];
+    await boardRef(board.id).update({groups:newGroups});
+    setBoard(b=>({...b,groups:newGroups}));
+    setAddingGroup(false);setNewGroupName("");
+  };
+
+  const deleteGroup=async(groupId)=>{
+    const newGroups=groups.filter(g=>g.id!==groupId);
+    await boardRef(board.id).update({groups:newGroups});
+    setBoard(b=>({...b,groups:newGroups}));
+    // Delete tasks in that group
+    const groupTasks=tasks.filter(t=>t.group===groupId);
+    if(groupTasks.length>0){
+      const batch=db.batch();
+      groupTasks.forEach(t=>batch.delete(tasksRef(board.id).doc(t.id)));
+      await batch.commit();
+    }
+  };
+
+  const renameGroup=async(groupId,newLabel)=>{
+    const newGroups=groups.map(g=>g.id===groupId?{...g,label:newLabel}:g);
+    await boardRef(board.id).update({groups:newGroups});
+    setBoard(b=>({...b,groups:newGroups}));
+  };
 
   const filtered=useMemo(()=>{
     const today=new Date();today.setHours(0,0,0,0);
@@ -970,8 +1012,29 @@ function App(){
             onUpdate={updateTask} onDelete={deleteTask} dragState={drag}
             onDragStart={onDragStart} onDragEnter={onDragEnter} onDragEnd={onDragEnd}
             onDropEmpty={onDropEmpty} onAddTask={addTask} sort={sort} onSort={onSort}
-            cols={cols} onResize={onResize} showWho={showWho} filter={filter} members={members}/>
+            cols={cols} onResize={onResize} showWho={showWho} filter={filter} members={members}
+            onDeleteGroup={deleteGroup} onRenameGroup={renameGroup}/>
         ))}
+        {/* Add group */}
+        {filter==="all"&&<div style={{padding:"8px 16px 16px"}}>
+          {addingGroup?(
+            <div style={{background:"#fff",border:"1.5px solid #0073ea",borderRadius:10,padding:"12px 14px",display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{width:11,height:11,borderRadius:"50%",background:GROUP_COLORS[groups.length%GROUP_COLORS.length],flexShrink:0}}/>
+              <input autoFocus placeholder="Group name…" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter")addGroup();if(e.key==="Escape"){setAddingGroup(false);setNewGroupName("");}}}
+                style={{flex:1,border:"none",outline:"none",fontFamily:"inherit",fontSize:14,fontWeight:600,color:"#323338",background:"transparent"}}/>
+              <button onClick={addGroup} style={{background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"5px 14px",fontFamily:"inherit",fontSize:13,fontWeight:700,cursor:"pointer"}}>Add</button>
+              <button onClick={()=>{setAddingGroup(false);setNewGroupName("");}} style={{background:"none",border:"none",color:"#c5c7d4",fontSize:20,cursor:"pointer",padding:"0 2px",lineHeight:1}}>×</button>
+            </div>
+          ):(
+            <button onClick={()=>setAddingGroup(true)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"none",border:"2px dashed #e6e9ef",borderRadius:10,fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#676879",cursor:"pointer",width:"100%",transition:"border-color 0.15s,color 0.15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#0073ea";e.currentTarget.style.color="#0073ea";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="#e6e9ef";e.currentTarget.style.color="#676879";}}>
+              <span style={{fontSize:18,lineHeight:1}}>+</span> Add group
+            </button>
+          )}
+        </div>}
       </div>
 
       <MobileInputBar newTask={isMob?newTask:null} onSave={commitNewTask} onCancel={()=>setNewTask(null)}
