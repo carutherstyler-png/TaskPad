@@ -308,7 +308,7 @@ function NotesPanel({task,onUpdate,onClose}){
 const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,isDropTarget,onDragStart,onDragEnter,onDragEnd,showWho,groupColor}){
   const[editing,setEditing]=useState(false);
   const[nameVal,setNameVal]=useState(task.name);
-  const[showNotes,setShowNotes]=useState(false);
+  
   const[flashing,setFlashing]=useState(false);
   const inputRef=useRef();
   const taskUser=resolveUser(task.assignee);
@@ -366,12 +366,17 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
       <td style={{...td}}>
         <PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})}/>
       </td>
-      <td style={{...td,borderRight:"none"}}>
+      <td style={{...td}}>
         <PopoverPill num={task.recNum} unit={task.recUnit} defaultUnit="Days" units={REC_UNITS} color="#0073ea" bg="#eaf2ff" border="1.5px solid #0073ea33" icon="↻" placeholder="Recurrence" onSave={(n,u)=>upd({recNum:n,recUnit:u})}/>
+      </td>
+      <td style={{...td,borderRight:"none",padding:"2px 8px"}}>
+        <textarea value={task.notes||""} onChange={e=>upd("notes",e.target.value)}
+          placeholder="Notes…"
+          style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:12,color:"#323338",resize:"none",height:36,background:"transparent",lineHeight:1.4,padding:"4px 0",verticalAlign:"middle"}}/>
       </td>
       <td style={{borderBottom:"1px solid #e6e9ef",width:36,textAlign:"center",verticalAlign:"middle"}}><DelBtn onDelete={()=>onDelete(task.id)}/></td>
     </tr>
-    {showNotes&&<tr><td colSpan={showWho?9:8} style={{padding:0,borderBottom:"1px solid #e6e9ef"}}><NotesPanel task={task} onUpdate={upd} onClose={()=>setShowNotes(false)}/></td></tr>}
+
     </>
   );
 });
@@ -453,7 +458,7 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
             <colgroup>
               <col style={{width:24}}/>{showWho&&<col style={{width:cols.who}}/>}<col style={{width:cols.name}}/>
               <col style={{width:cols.status}}/><col style={{width:cols.priority}}/><col style={{width:cols.due}}/>
-              <col style={{width:cols.duration}}/><col style={{width:cols.recurrence}}/><col style={{width:36}}/>
+              <col style={{width:cols.duration}}/><col style={{width:cols.recurrence}}/><col style={{width:cols.notes}}/><col style={{width:36}}/>
             </colgroup>
             <thead>
               <tr style={{borderBottom:"1px solid #e6e9ef"}}>
@@ -464,13 +469,14 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
                 <SortHdr label="Priority" field="priority" sort={sort} onSort={onSort} style={{...bs}} resizeCol="priority" onResize={onResize}/>
                 <SortHdr label="Due" field="dueDate" sort={sort} onSort={onSort} style={{...bs}} resizeCol="due" onResize={onResize}/>
                 <SortHdr label="Duration" field="duration" sort={sort} onSort={onSort} style={{...bs}} resizeCol="duration" onResize={onResize}/>
-                <SortHdr label="Recurrence" field="recurrence" sort={sort} onSort={onSort} style={{borderRight:"none"}} resizeCol="recurrence" onResize={onResize}/>
+                <SortHdr label="Recurrence" field="recurrence" sort={sort} onSort={onSort} style={{...bs}} resizeCol="recurrence" onResize={onResize}/>
+                <th className="hdr" style={{...bs,position:"relative"}}>Notes<div className="resize-handle" onMouseDown={e=>{e.preventDefault();e.stopPropagation();const sx=e.clientX;const sw=cols.notes;const om=ev=>onResize("notes",Math.max(60,sw+(ev.clientX-sx)));const ou=()=>{document.removeEventListener("mousemove",om);document.removeEventListener("mouseup",ou);};document.addEventListener("mousemove",om);document.addEventListener("mouseup",ou);}} onClick={e=>e.stopPropagation()}/></th>
                 <th className="hdr" style={{borderRight:"none"}}/>
               </tr>
             </thead>
             <tbody>
               {groupTasks.length===0
-                ?<tr><td colSpan={showWho?9:8}>
+                ?<tr><td colSpan={showWho?10:9}>
                     <div onDragOver={e=>e.preventDefault()} onDrop={()=>onDropEmpty(group.id)}
                       style={{padding:32,color:"#c5c7d4",fontSize:13,textAlign:"center",background:dragState.overGroup===group.id?"#f0f6ff":"transparent"}}>
                       {dragState.draggingId?"Drop here ↓":"No tasks yet — click Add task below"}
@@ -538,7 +544,7 @@ function App(){
   const[newTask,setNewTask]=useState(null);
   const[drag,setDrag]=useState({draggingId:null,overId:null,overGroup:null});
   const[sort,setSort]=useState({field:null,dir:"asc"});
-  const[cols,setCols]=useState({who:38,name:220,status:120,priority:108,due:100,duration:110,recurrence:130});
+  const[cols,setCols]=useState({who:38,name:160,status:120,priority:108,due:100,duration:110,recurrence:130,notes:180});
   const[view,setView]=useState("all"); // all | today
 
   useEffect(()=>{
