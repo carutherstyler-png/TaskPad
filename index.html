@@ -336,10 +336,7 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
       {showWho&&<td style={{...td,width:38,padding:0}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%"}}><AssigneePill value={taskUser.id} onOpen={md=>openMenu(md,v=>upd("assignee",resolveUser(v).id))}/></div></td>}
       <td style={{...td}}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <button onClick={()=>setShowNotes(n=>!n)} title="Notes"
-            style={{background:"none",border:"none",cursor:"pointer",color:task.notes?"#0073ea":"#c5c7d4",fontSize:13,padding:"0 2px",lineHeight:1,flexShrink:0}}>
-            {task.notes?"📝":"📄"}
-          </button>
+        
           {editing
             ?<input ref={inputRef} value={nameVal} onChange={e=>setNameVal(e.target.value)}
                 onBlur={saveName} onKeyDown={e=>{if(e.key==="Enter")saveName();if(e.key==="Escape"){setNameVal(task.name);setEditing(false);}}}
@@ -435,13 +432,13 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
 });
 
 // ── Group Section ──
-function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,activeUser,view}){
+function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,activeUser,filter}){
   const[collapsed,setCollapsed]=useState(false);
   const groupTasks=tasks.filter(t=>t.group===group.id);
   const doneCount=groupTasks.filter(t=>t.status==="Done").length;
   const showWho=activeUser==="both";
   const bs={borderRight:"1px solid #e6e9ef"};
-  if(view==="today"&&groupTasks.length===0)return null;
+  if(filter!=="all"&&groupTasks.length===0)return null;
 
   return(
     <div className="group-card" style={{marginBottom:8,borderTop:"1px solid #e6e9ef",borderBottom:"1px solid #e6e9ef",background:"#fff"}}>
@@ -494,7 +491,7 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
               }
             </tbody>
           </table>
-          {view!=="today"&&<div style={{borderTop:"1px solid #e6e9ef"}}><button className="add-btn" onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button></div>}
+          {filter==="all"&&<div style={{borderTop:"1px solid #e6e9ef"}}><button className="add-btn" onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button></div>}
         </div>
         {/* Mobile */}
         <div className="mobile-only" style={{padding:"10px 12px"}}>
@@ -503,7 +500,7 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
             <MobileCard key={task.id} task={task} showWho={showWho} groupColor={group.color}
               onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onDelete} openMenu={openMenu}/>
           ))}
-          {view!=="today"&&<button className="add-btn" style={{width:"100%",justifyContent:"center",border:"2px dashed #e6e9ef",borderRadius:10,marginTop:4}} onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button>}
+          {filter==="all"&&<button className="add-btn" style={{width:"100%",justifyContent:"center",border:"2px dashed #e6e9ef",borderRadius:10,marginTop:4}} onClick={()=>onAddTask(group.id)}><span style={{fontSize:18,lineHeight:1,color:group.color}}>+</span> Add task</button>}
         </div>
       </>}
     </div>
@@ -545,7 +542,7 @@ function App(){
   const[drag,setDrag]=useState({draggingId:null,overId:null,overGroup:null});
   const[sort,setSort]=useState({field:null,dir:"asc"});
   const[cols,setCols]=useState({who:38,name:160,status:120,priority:108,due:100,duration:110,recurrence:130,notes:180});
-  const[view,setView]=useState("all"); // all | today
+  const[filter,setFilter]=useState("all"); // all | today | overdue
 
   useEffect(()=>{
     const unsub=db.collection("tasks").onSnapshot(snap=>{
@@ -638,15 +635,20 @@ function App(){
       const vis=activeUser==="both"||uid==="both"||uid===activeUser;
       if(!vis)return false;
       if(search&&!t.name.toLowerCase().includes(search.toLowerCase()))return false;
-      if(view==="today"){const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}
+      if(filter==="today"){const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}
+      if(filter==="overdue"){const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<today&&t.status!=="Done";}
       return true;
     });
-  },[sorted,activeUser,search,view]);
+  },[sorted,activeUser,search,filter]);
 
   const doneCount=useMemo(()=>tasks.filter(t=>t.status==="Done").length,[tasks]);
   const todayCount=useMemo(()=>{
     const today=new Date();today.setHours(0,0,0,0);
     return tasks.filter(t=>{const uid=resolveUser(t.assignee).id;const vis=activeUser==="both"||uid==="both"||uid===activeUser;if(!vis)return false;const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}).length;
+  },[tasks,activeUser]);
+  const overdueCount=useMemo(()=>{
+    const today=new Date();today.setHours(0,0,0,0);
+    return tasks.filter(t=>{const uid=resolveUser(t.assignee).id;const vis=activeUser==="both"||uid==="both"||uid===activeUser;if(!vis)return false;const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<today&&t.status!=="Done";}).length;
   },[tasks,activeUser]);
 
   const isMob=window.innerWidth<=700;
@@ -678,9 +680,12 @@ function App(){
 
       {/* Nav tabs */}
       <div style={{background:"#fff",borderBottom:"1px solid #e6e9ef",display:"flex",alignItems:"center",padding:"0 16px",gap:0}}>
-        <button className={`nav-tab${view==="all"?" active":""}`} onClick={()=>setView("all")}>All tasks</button>
-        <button className={`nav-tab${view==="today"?" active":""}`} onClick={()=>setView("today")}>
-          Today {todayCount>0&&<span style={{background:"#e2445c",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:700,marginLeft:4}}>{todayCount}</span>}
+        <button className={`nav-tab${filter==="all"?" active":""}`} onClick={()=>setFilter("all")}>All</button>
+        <button className={`nav-tab${filter==="today"?" active":""}`} onClick={()=>setFilter("today")}>
+          Due Today {todayCount>0&&<span style={{background:"#fdab3d",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:700,marginLeft:4}}>{todayCount}</span>}
+        </button>
+        <button className={`nav-tab${filter==="overdue"?" active":""}`} onClick={()=>setFilter("overdue")}>
+          Overdue {overdueCount>0&&<span style={{background:"#e2445c",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:700,marginLeft:4}}>{overdueCount}</span>}
         </button>
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:7,background:"#f5f6f8",border:"1.5px solid #e6e9ef",borderRadius:6,padding:"5px 10px"}}>
@@ -703,11 +708,11 @@ function App(){
 
       {/* Groups */}
       <div className="groups-wrap" style={{padding:"0 0 28px"}}>
-        {view==="today"&&filtered.length===0&&(
+        {filter!=="all"&&filtered.length===0&&(
           <div className="empty-state" style={{padding:80}}>
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="28" stroke="#c5c7d4" strokeWidth="2"/><path d="M22 32l7 7 13-13" stroke="#00c875" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <span style={{fontSize:16,fontWeight:600,color:"#676879"}}>All caught up!</span>
-            <span style={{fontSize:13,color:"#c5c7d4"}}>No tasks due today or overdue.</span>
+            <span style={{fontSize:13,color:"#c5c7d4"}}>{filter==="today"?"No tasks due today.":"No overdue tasks — great work!"}</span>
           </div>
         )}
         {GROUPS.map(g=>(
@@ -715,7 +720,7 @@ function App(){
             onUpdate={updateTask} onDelete={deleteTask} dragState={drag}
             onDragStart={onDragStart} onDragEnter={onDragEnter} onDragEnd={onDragEnd}
             onDropEmpty={onDropEmpty} onAddTask={addTask} sort={sort} onSort={onSort}
-            cols={cols} onResize={onResize} activeUser={activeUser} view={view}/>
+            cols={cols} onResize={onResize} activeUser={activeUser} filter={filter}/>
         ))}
       </div>
 
