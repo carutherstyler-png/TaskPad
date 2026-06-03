@@ -387,6 +387,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
   const inputRef=useRef();
   const cardRef=useRef();
   const holdTimer=useRef();
+  const holdingRef=useRef(false);
   const taskUser=resolveUser(task.assignee);
   const overdue=isOverdue(task);
   const rel=formatRelDate(task.dueDate);
@@ -394,36 +395,77 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
   useEffect(()=>{if(editing)inputRef.current?.focus();},[editing]);
   const saveName=()=>{setEditing(false);if(nameVal.trim()!==task.name)upd("name",nameVal.trim()||task.name);};
 
-  // Touch drag
-  const onTouchStart=e=>{
-    if(editing)return;
-    holdTimer.current=setTimeout(()=>{
-      setHolding(true);
-      if(navigator.vibrate)navigator.vibrate(40);
-      onDragStart(task.id);
-    },400);
-  };
-  const onTouchMove=e=>{
-    if(!holding){clearTimeout(holdTimer.current);return;}
-    e.preventDefault();
-    const touch=e.touches[0];
-    const el=document.elementFromPoint(touch.clientX,touch.clientY);
-    const card=el?.closest("[data-task-id]");
-    if(card&&card.dataset.taskId!==task.id){
-      onDragEnter(card.dataset.taskId, card.dataset.groupId);
-    }
-  };
-  const onTouchEnd=e=>{
-    clearTimeout(holdTimer.current);
-    if(holding){setHolding(false);onDragEnd();}
-  };
+  useEffect(()=>{
+    const card=cardRef.current;
+    if(!card)return;
+
+    let startY=0;
+
+    const handleTouchStart=e=>{
+      if(editing)return;
+      startY=e.touches[0].clientY;
+      holdTimer.current=setTimeout(()=>{
+        holdingRef.current=true;
+        setHolding(true);
+        if(navigator.vibrate)navigator.vibrate(50);
+        onDragStart(task.id);
+      },400);
+    };
+
+    const handleTouchMove=e=>{
+      // Cancel hold if user scrolls before timer fires
+      if(!holdingRef.current){
+        const dy=Math.abs(e.touches[0].clientY-startY);
+        if(dy>8){clearTimeout(holdTimer.current);}
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const touch=e.touches[0];
+      // Hide the dragging card temporarily to find element underneath
+      card.style.visibility="hidden";
+      const el=document.elementFromPoint(touch.clientX,touch.clientY);
+      card.style.visibility="visible";
+      const target=el?.closest("[data-task-id]");
+      if(target&&target.dataset.taskId!==task.id){
+        onDragEnter(target.dataset.taskId, target.dataset.groupId);
+      }
+    };
+
+    const handleTouchEnd=e=>{
+      clearTimeout(holdTimer.current);
+      if(holdingRef.current){
+        holdingRef.current=false;
+        setHolding(false);
+        onDragEnd();
+      }
+    };
+
+    card.addEventListener("touchstart",handleTouchStart,{passive:true});
+    card.addEventListener("touchmove",handleTouchMove,{passive:false});
+    card.addEventListener("touchend",handleTouchEnd,{passive:true});
+    return()=>{
+      card.removeEventListener("touchstart",handleTouchStart);
+      card.removeEventListener("touchmove",handleTouchMove);
+      card.removeEventListener("touchend",handleTouchEnd);
+    };
+  },[task.id,editing,onDragStart,onDragEnter,onDragEnd]);
 
   return(
     <div ref={cardRef} data-task-id={task.id} data-group-id={groupColor}
       className={`mobile-card${overdue?" overdue":""}${task.status==="Done"?" done":""}`}
-      style={{borderLeft:`3px solid ${groupColor}`,opacity:isDragging?0.4:1,transform:isDropTarget?"translateY(-2px)":"none",boxShadow:isDropTarget?`0 4px 12px ${groupColor}44`:"none",transition:"opacity 0.15s,transform 0.15s,box-shadow 0.15s",border:isDropTarget?`2px solid ${groupColor}`:"1px solid #e6e9ef",cursor:holding?"grabbing":"default"}}
-      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-    {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px"}}>Drag to reorder</div>}
+      style={{
+        borderLeft:`3px solid ${groupColor}`,
+        opacity:isDragging?0.4:1,
+        transform:isDropTarget?"scale(1.02)":"scale(1)",
+        boxShadow:holding?"0 8px 24px rgba(0,0,0,0.15)":isDropTarget?`0 4px 12px ${groupColor}44`:"",
+        border:isDropTarget?`2px solid ${groupColor}`:"1px solid #e6e9ef",
+        transition:"opacity 0.15s,transform 0.15s,box-shadow 0.15s",
+        cursor:holding?"grabbing":"default",
+        position:"relative",
+        zIndex:holding?999:1,
+      }}>
+    {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px",zIndex:10}}>↕ Reordering</div>}
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
         {showWho&&<AssigneePill value={taskUser.id} onOpen={md=>openMenu(md,v=>upd("assignee",resolveUser(v).id))}/>}
         {editing
