@@ -391,9 +391,10 @@ function BoardSelector({user,onSelect}){
   const[error,setError]=useState("");
 
   useEffect(()=>{
-    // Listen to boards where user is a member
-    const unsub=db.collectionGroup("members").where("uid","==",user.uid).onSnapshot(async snap=>{
-      const boardIds=[...new Set(snap.docs.map(d=>d.ref.parent.parent.id))];
+    // Store user's board memberships in a top-level user doc for easy lookup
+    const unsub=db.collection("userBoards").doc(user.uid).onSnapshot(async snap=>{
+      const data=snap.data();
+      const boardIds=data?.boardIds||[];
       if(boardIds.length===0){setBoards([]);setLoading(false);return;}
       const boardDocs=await Promise.all(boardIds.map(id=>boardRef(id).get()));
       setBoards(boardDocs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})));
@@ -410,7 +411,7 @@ function BoardSelector({user,onSelect}){
     const batch=db.batch();
     batch.set(boardRef(id),{name:newName.trim(),createdBy:user.uid,createdAt:Date.now(),inviteCode:code,groups:DEFAULT_GROUPS});
     batch.set(membersRef(id).doc(user.uid),{uid:user.uid,displayName:user.displayName||user.email,email:user.email,color:MEMBER_COLORS[0],role:"admin",joinedAt:Date.now()});
-    // Migrate existing tasks if this is Tyler or Melissa's first board
+    batch.set(db.collection("userBoards").doc(user.uid),{boardIds:firebase.firestore.FieldValue.arrayUnion(id)},{merge:true});
     await batch.commit();
     setCreating(false);setNewName("");
     onSelect({id,name:newName.trim()});
@@ -424,7 +425,10 @@ function BoardSelector({user,onSelect}){
     if(snap.empty){setError("Invalid invite code.");return;}
     const boardDoc=snap.docs[0];
     const color=MEMBER_COLORS[Math.floor(Math.random()*MEMBER_COLORS.length)];
-    await membersRef(boardDoc.id).doc(user.uid).set({uid:user.uid,displayName:user.displayName||user.email,email:user.email,color,role:"member",joinedAt:Date.now()});
+    const batch=db.batch();
+    batch.set(membersRef(boardDoc.id).doc(user.uid),{uid:user.uid,displayName:user.displayName||user.email,email:user.email,color,role:"member",joinedAt:Date.now()});
+    batch.set(db.collection("userBoards").doc(user.uid),{boardIds:firebase.firestore.FieldValue.arrayUnion(boardDoc.id)},{merge:true});
+    await batch.commit();
     onSelect({id:boardDoc.id,name:boardDoc.data().name});
   };
 
