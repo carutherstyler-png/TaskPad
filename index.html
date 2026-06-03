@@ -462,15 +462,16 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
       className={`mobile-card${overdue?" overdue":""}${task.status==="Done"?" done":""}`}
       style={{
         borderLeft:`3px solid ${groupColor}`,
-        opacity:isDragging?0.4:1,
-        transform:isDropTarget?"scale(1.02)":"scale(1)",
-        boxShadow:holding?"0 8px 24px rgba(0,0,0,0.15)":isDropTarget?`0 4px 12px ${groupColor}44`:"",
-        border:isDropTarget?`2px solid ${groupColor}`:"1px solid #e6e9ef",
-        transition:"opacity 0.15s,transform 0.15s,box-shadow 0.15s",
+        opacity:isDragging?0.35:1,
+        boxShadow:holding?"0 8px 24px rgba(0,0,0,0.15)":"",
+        border:"1px solid #e6e9ef",
+        transition:"opacity 0.15s,box-shadow 0.15s",
         cursor:holding?"grabbing":"default",
         position:"relative",
         zIndex:holding?999:1,
+        marginBottom:8,
       }}>
+      {isDropTarget&&<div style={{position:"absolute",top:-3,left:0,right:0,height:3,background:"#0073ea",borderRadius:2,zIndex:10,boxShadow:"0 0 6px #0073ea88"}}/>}
     {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px",zIndex:10}}>↕ Reordering</div>}
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
         {showWho&&<AssigneePill value={taskUser.id} onOpen={md=>openMenu(md,v=>upd("assignee",resolveUser(v).id))}/>}
