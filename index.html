@@ -62,6 +62,25 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;color:#c5c7d4;gap:12px;}
 .resize-handle{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;}
 .resize-handle:hover{background:rgba(0,115,234,0.2);}
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9990;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.2s ease;}
+.settings-panel{background:#fff;border-radius:16px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);animation:fadeIn 0.2s ease;}
+.settings-section{padding:20px 24px;border-bottom:1px solid #e6e9ef;}
+.settings-section:last-child{border-bottom:none;}
+.settings-title{font-size:11px;font-weight:700;color:#676879;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:14px;}
+.settings-input{width:100%;border:1.5px solid #e6e9ef;border-radius:8px;padding:9px 12px;font-family:inherit;font-size:14px;color:#323338;outline:none;transition:border-color 0.15s;}
+.settings-input:focus{border-color:#0073ea;}
+.settings-btn{background:#0073ea;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.15s;}
+.settings-btn:hover{background:#0060c0;}
+.settings-btn.danger{background:#fff;color:#e2445c;border:1.5px solid #e2445c;}
+.settings-btn.danger:hover{background:#fce8ec;}
+.settings-btn.secondary{background:#f5f6f8;color:#323338;border:none;}
+.settings-btn.secondary:hover{background:#edf0f4;}
+.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;border:3px solid transparent;flex-shrink:0;}
+.color-swatch:hover{transform:scale(1.15);}
+.color-swatch.selected{border-color:#323338;box-shadow:0 0 0 2px #fff inset;}
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f5f6f8;}
+.activity-item:last-child{border-bottom:none;}
+.activity-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
 /* Auth */
 .auth-card{background:#fff;border-radius:16px;padding:36px;width:100%;max-width:420px;box-shadow:0 4px 32px rgba(0,0,0,0.10);animation:fadeIn 0.4s ease;}
 .auth-input{width:100%;border:1.5px solid #e6e9ef;border-radius:8px;padding:11px 14px;font-family:inherit;font-size:15px;color:#323338;outline:none;transition:border-color 0.15s;margin-bottom:12px;}
@@ -176,6 +195,12 @@ function boardRef(boardId){return db.collection("boards").doc(boardId);}
 function tasksRef(boardId){return db.collection("boards").doc(boardId).collection("tasks");}
 function membersRef(boardId){return db.collection("boards").doc(boardId).collection("members");}
 async function saveTask(boardId,task){await tasksRef(boardId).doc(task.id).set(task);}
+function activityRef(boardId){return db.collection("boards").doc(boardId).collection("activity");}
+async function logActivity(boardId,uid,displayName,action,taskName){
+  try{
+    await activityRef(boardId).add({uid,displayName,action,taskName,timestamp:Date.now()});
+  }catch(e){}
+}
 async function deleteTaskDb(boardId,id){await tasksRef(boardId).doc(id).delete();}
 async function saveTasks(boardId,list){const b=db.batch();list.forEach(t=>b.set(tasksRef(boardId).doc(t.id),t));await b.commit();}
 
@@ -313,6 +338,198 @@ function SortHdr({label,field,sort,onSort,style,resizeCol,onResize}){
       </span>
       {resizeCol&&<div ref={ref} className="resize-handle" onMouseDown={startResize} onClick={e=>e.stopPropagation()}/>}
     </th>
+  );
+}
+
+// ── Profile Modal ──
+function ProfileModal({user,members,boardId,onClose}){
+  const me=members.find(m=>m.uid===user.uid);
+  const[name,setName]=useState(user.displayName||"");
+  const[color,setColor]=useState(me?.color||MEMBER_COLORS[0]);
+  const[saving,setSaving]=useState(false);
+  const[saved,setSaved]=useState(false);
+
+  const save=async()=>{
+    setSaving(true);
+    try{
+      await user.updateProfile({displayName:name.trim()||user.displayName});
+      if(boardId){
+        await db.collection("boards").doc(boardId).collection("members").doc(user.uid).update({displayName:name.trim()||user.displayName,color});
+      }
+      setSaved(true);setTimeout(()=>setSaved(false),2000);
+    }catch(e){}
+    setSaving(false);
+  };
+
+  return(
+    <div className="settings-overlay" onClick={e=>{if(e.target.className==="settings-overlay")onClose();}}>
+      <div className="settings-panel">
+        <div style={{display:"flex",alignItems:"center",gap:12,padding:"20px 24px",borderBottom:"1px solid #e6e9ef"}}>
+          <div style={{width:44,height:44,borderRadius:"50%",background:color+"22",border:`2px solid ${color}`,color,fontSize:16,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {(name||user.displayName||user.email||"?")[0].toUpperCase()}
+          </div>
+          <div>
+            <div style={{fontWeight:700,fontSize:16,color:"#323338"}}>Profile Settings</div>
+            <div style={{fontSize:12,color:"#676879"}}>{user.email}</div>
+          </div>
+          <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"#c5c7d4",fontSize:22,lineHeight:1}}>×</button>
+        </div>
+        <div className="settings-section">
+          <div className="settings-title">Display Name</div>
+          <input className="settings-input" value={name} onChange={e=>setName(e.target.value)}
+            placeholder="Your name" onKeyDown={e=>e.key==="Enter"&&save()}/>
+        </div>
+        <div className="settings-section">
+          <div className="settings-title">Avatar Color</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            {MEMBER_COLORS.map(c=>(
+              <div key={c} className={`color-swatch${color===c?" selected":""}`}
+                style={{background:c}} onClick={()=>setColor(c)}/>
+            ))}
+          </div>
+        </div>
+        <div style={{padding:"16px 24px",display:"flex",gap:10,justifyContent:"flex-end"}}>
+          <button className="settings-btn secondary" onClick={onClose}>Cancel</button>
+          <button className="settings-btn" onClick={save} disabled={saving}>
+            {saved?"✓ Saved":saving?"Saving…":"Save changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Board Settings Modal ──
+function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave}){
+  const[boardName,setBoardName]=useState(board.name);
+  const[saving,setSaving]=useState(false);
+  
+  const[savedState,setSavedState]=useState(false);
+
+  const saveBoardName=async()=>{
+    if(!boardName.trim()||boardName===board.name)return;
+    setSaving(true);
+    await boardRef(board.id).update({name:boardName.trim()});
+    onBoardUpdate({...board,name:boardName.trim()});
+    setSavedState(true);setTimeout(()=>setSavedState(false),2000);
+    setSaving(false);
+  };
+
+  const removeMember=async(uid)=>{
+    if(!confirm("Remove this member from the board?"))return;
+    await membersRef(board.id).doc(uid).delete();
+    await db.collection("userBoards").doc(uid).update({boardIds:firebase.firestore.FieldValue.arrayRemove(board.id)});
+  };
+
+  const regenerateCode=async()=>{
+    const code=Math.random().toString(36).slice(2,8).toUpperCase();
+    await boardRef(board.id).update({inviteCode:code});
+    onBoardUpdate({...board,inviteCode:code});
+  };
+
+  const isAdmin=members.find(m=>m.uid===user.uid)?.role==="admin";
+
+  return(
+    <div className="settings-overlay" onClick={e=>{if(e.target.className==="settings-overlay")onClose();}}>
+      <div className="settings-panel">
+        <div style={{display:"flex",alignItems:"center",padding:"20px 24px",borderBottom:"1px solid #e6e9ef"}}>
+          <span style={{fontWeight:700,fontSize:16,color:"#323338"}}>Board Settings</span>
+          <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"#c5c7d4",fontSize:22,lineHeight:1}}>×</button>
+        </div>
+
+        {isAdmin&&<div className="settings-section">
+          <div className="settings-title">Board Name</div>
+          <div style={{display:"flex",gap:8}}>
+            <input className="settings-input" value={boardName} onChange={e=>setBoardName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveBoardName()}/>
+            <button className="settings-btn" onClick={saveBoardName} disabled={saving}>
+              {savedState?"✓":saving?"…":"Save"}
+            </button>
+          </div>
+        </div>}
+
+        <div className="settings-section">
+          <div className="settings-title">Invite Code</div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{background:"#f5f6f8",borderRadius:8,padding:"10px 16px",fontWeight:700,fontSize:18,letterSpacing:3,color:"#323338",flex:1,textAlign:"center"}}>{board.inviteCode}</div>
+            <button className="settings-btn secondary" onClick={()=>navigator.clipboard.writeText(board.inviteCode).then(()=>alert("Copied!"))}>Copy</button>
+            {isAdmin&&<button className="settings-btn secondary" onClick={regenerateCode}>New code</button>}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-title">Members ({members.length})</div>
+          {members.map(m=>{
+            const u=resolveUser(m.uid,members);
+            return(
+              <div key={m.uid} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:u.color+"22",border:`1.5px solid ${u.color}55`,color:u.color,fontSize:12,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{u.initials}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:600,color:"#323338"}}>{u.label}</div>
+                  <div style={{fontSize:11,color:"#676879"}}>{m.role==="admin"?"Admin":"Member"}</div>
+                </div>
+                {isAdmin&&m.uid!==user.uid&&<button className="settings-btn danger" onClick={()=>removeMember(m.uid)} style={{padding:"4px 10px",fontSize:12}}>Remove</button>}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="settings-section">
+          <button className="settings-btn danger" style={{width:"100%"}} onClick={onLeave}>Leave board</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Activity Log Panel ──
+function ActivityPanel({boardId,members,onClose}){
+  const[activities,setActivities]=useState([]);
+  const[loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    const unsub=activityRef(boardId).orderBy("timestamp","desc").limit(50).onSnapshot(snap=>{
+      setActivities(snap.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+    return unsub;
+  },[boardId]);
+
+  function timeAgo(ts){
+    const diff=Date.now()-ts;
+    if(diff<60000)return"Just now";
+    if(diff<3600000)return`${Math.floor(diff/60000)}m ago`;
+    if(diff<86400000)return`${Math.floor(diff/3600000)}h ago`;
+    return`${Math.floor(diff/86400000)}d ago`;
+  }
+
+  return(
+    <div className="settings-overlay" onClick={e=>{if(e.target.className==="settings-overlay")onClose();}}>
+      <div className="settings-panel">
+        <div style={{display:"flex",alignItems:"center",padding:"20px 24px",borderBottom:"1px solid #e6e9ef"}}>
+          <span style={{fontWeight:700,fontSize:16,color:"#323338"}}>Activity Log</span>
+          <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:"#c5c7d4",fontSize:22,lineHeight:1}}>×</button>
+        </div>
+        <div style={{padding:"8px 24px 20px"}}>
+          {loading&&<div style={{color:"#c5c7d4",fontSize:13,padding:"20px 0",textAlign:"center"}}>Loading…</div>}
+          {!loading&&activities.length===0&&<div style={{color:"#c5c7d4",fontSize:13,padding:"20px 0",textAlign:"center"}}>No activity yet.</div>}
+          {activities.map(a=>{
+            const u=resolveUser(a.uid,members);
+            return(
+              <div key={a.id} className="activity-item">
+                <div className="activity-avatar" style={{background:u.color+"22",color:u.color}}>{u.initials}</div>
+                <div style={{flex:1}}>
+                  <span style={{fontWeight:600,color:"#323338",fontSize:13}}>{u.label}</span>
+                  <span style={{color:"#676879",fontSize:13}}> {a.action} </span>
+                  <span style={{fontWeight:600,color:"#323338",fontSize:13}}>"{a.taskName}"</span>
+                  <div style={{fontSize:11,color:"#c5c7d4",marginTop:2}}>{timeAgo(a.timestamp)}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -839,6 +1056,10 @@ function App(){
     return()=>{unsubTasks();unsubMembers();};
   },[board?.id]);
 
+  const[showProfile,setShowProfile]=useState(false);
+  const[showBoardSettings,setShowBoardSettings]=useState(false);
+  const[showActivity,setShowActivity]=useState(false);
+
   // Keyboard shortcut
   useEffect(()=>{
     if(!board)return;
@@ -861,12 +1082,22 @@ function App(){
     if(fields.status==="Done"&&task.recNum&&task.recNum!=="0"&&task.recUnit){
       const rescheduled={...updated,status:"Not Started",dueDate:nextDue(task.dueDate,task.recNum,task.recUnit)};
       setSyncing(true);await saveTask(board.id,rescheduled).finally(()=>setSyncing(false));
-      showToast("↻ Rescheduled to "+(formatRelDate(rescheduled.dueDate)?.label||rescheduled.dueDate));return;
+      showToast("↻ Rescheduled to "+(formatRelDate(rescheduled.dueDate)?.label||rescheduled.dueDate));
+      logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"completed (rescheduled)",task.name);
+      return;
     }
+    // Log meaningful changes
+    if(fields.status&&fields.status!==task.status)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,`marked "${fields.status}"`,task.name);
+    else if(fields.name&&fields.name!==task.name)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"renamed",fields.name);
+    else if(fields.assignee&&fields.assignee!==task.assignee)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"reassigned",task.name);
     setSyncing(true);await saveTask(board.id,updated).finally(()=>setSyncing(false));
-  },[tasks,board,showToast]);
+  },[tasks,board,authUser,showToast]);
 
-  const deleteTask=useCallback(async id=>{setSyncing(true);await deleteTaskDb(board.id,id).finally(()=>setSyncing(false));},[board]);
+  const deleteTask=useCallback(async id=>{
+    const task=tasks.find(t=>t.id===id);
+    if(task)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"deleted",task.name);
+    setSyncing(true);await deleteTaskDb(board.id,id).finally(()=>setSyncing(false));
+  },[tasks,board,authUser]);
 
   const addTask=useCallback(group=>{
     setNewTask({id:genId(),name:"",status:"Not Started",priority:"Medium",dueDate:"",recNum:"",recUnit:"Days",durNum:"",durUnit:"mins",group,assignee:authUser?.uid||"",order:Date.now()});
@@ -875,8 +1106,10 @@ function App(){
   const commitNewTask=useCallback(async name=>{
     if(!newTask||!name.trim())return;
     const t={...newTask,name:name.trim(),order:Date.now()};
-    setNewTask(null);setSyncing(true);await saveTask(board.id,t).finally(()=>setSyncing(false));
-  },[newTask,board]);
+    setNewTask(null);setSyncing(true);
+    await saveTask(board.id,t).finally(()=>setSyncing(false));
+    logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"created",name.trim());
+  },[newTask,board,authUser]);
 
   const onDragStart=useCallback(id=>setDrag({draggingId:id,overId:null,overGroup:null}),[]);
   const onDragEnter=useCallback((id,group)=>setDrag(s=>({...s,overId:id,overGroup:group})),[]);
@@ -1019,7 +1252,16 @@ function App(){
             );})}
           </div>
         )}
-        <button onClick={()=>auth.signOut()} style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:11,color:"#676879",cursor:"pointer",marginLeft:members.length<=1?"auto":"0"}}>Sign out</button>
+        <div style={{display:"flex",gap:6,marginLeft:members.length<=1?"auto":"0"}}>
+          <button onClick={()=>setShowActivity(true)} title="Activity log"
+            style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>📋</button>
+          <button onClick={()=>setShowBoardSettings(true)} title="Board settings"
+            style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>⚙️</button>
+          <button onClick={()=>setShowProfile(true)} title="Profile"
+            style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>👤</button>
+          <button onClick={()=>auth.signOut()}
+            style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:11,color:"#676879",cursor:"pointer"}}>Sign out</button>
+        </div>
       </div>
 
       {/* Nav tabs */}
@@ -1093,6 +1335,17 @@ function App(){
         onUpdateNew={(f,v)=>setNewTask(t=>({...t,[f]:v}))} openMenu={openMenu} members={members} groups={groups}/>}
 
       {toast&&<div className="toast">{toast}</div>}
+
+      {showProfile&&<ProfileModal user={authUser} members={members} boardId={board?.id} onClose={()=>setShowProfile(false)}/>}
+      {showBoardSettings&&<BoardSettingsModal board={board} members={members} user={authUser} onClose={()=>setShowBoardSettings(false)}
+        onBoardUpdate={b=>setBoard(b)}
+        onLeave={async()=>{
+          if(!confirm("Leave this board?"))return;
+          await membersRef(board.id).doc(authUser.uid).delete();
+          await db.collection("userBoards").doc(authUser.uid).update({boardIds:firebase.firestore.FieldValue.arrayRemove(board.id)});
+          setBoard(null);setShowBoardSettings(false);
+        }}/>}
+      {showActivity&&<ActivityPanel boardId={board.id} members={members} onClose={()=>setShowActivity(false)}/>}
     </div>
   );
 }
