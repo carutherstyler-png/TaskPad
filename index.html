@@ -168,8 +168,10 @@ function nextDue(due,num,unit){
 }
 function formatRelDate(ds){
   if(!ds)return null;
+  // Parse date parts directly to avoid UTC timezone shift
+  const[y,m,day]=ds.split("-").map(Number);
   const today=new Date();today.setHours(0,0,0,0);
-  const d=new Date(ds);d.setHours(0,0,0,0);
+  const d=new Date(y,m-1,day); // local midnight
   const diff=Math.round((d-today)/(1000*60*60*24));
   if(diff===0)return{label:"Today",color:"#e2445c"};
   if(diff===1)return{label:"Tomorrow",color:"#fdab3d"};
@@ -178,7 +180,13 @@ function formatRelDate(ds){
   if(diff<=7)return{label:`${diff}d`,color:"#fdab3d"};
   return{label:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),color:"#676879"};
 }
-function isOverdue(task){return task.dueDate&&new Date(task.dueDate)<new Date()&&task.status!=="Done";}
+function isOverdue(task){
+  if(!task.dueDate||task.status==="Done")return false;
+  const[y,m,day]=task.dueDate.split("-").map(Number);
+  const d=new Date(y,m-1,day);
+  const today=new Date();today.setHours(0,0,0,0);
+  return d<today;
+}
 function priorityOrder(p){return{Critical:0,High:1,Medium:2,Low:3}[p]??99;}
 function statusOrder(s){return{"Not Started":0,"In Progress":1,Stuck:2,Done:3}[s]??99;}
 function durToMins(t){const n=parseFloat(t.durNum)||0;if(t.durUnit==="hrs")return n*60;if(t.durUnit==="days")return n*1440;return n;}
@@ -1207,15 +1215,15 @@ function App(){
       const vis=!activeUserId||activeUserId===uid||members.length<=1;
       // In shared board show all unless filtered by user
       if(search&&!t.name.toLowerCase().includes(search.toLowerCase()))return false;
-      if(filter==="today"){const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}
-      if(filter==="overdue"){const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<today&&t.status!=="Done";}
+      if(filter==="today"){if(!t.dueDate||t.status==="Done")return false;const[y,mo,dy]=t.dueDate.split("-").map(Number);const d=new Date(y,mo-1,dy);return d<=today;}
+      if(filter==="overdue"){if(!t.dueDate||t.status==="Done")return false;const[y,mo,dy]=t.dueDate.split("-").map(Number);const d=new Date(y,mo-1,dy);return d<today;}
       return true;
     });
   },[sorted,activeUserId,search,filter,members]);
 
   const doneCount=useMemo(()=>tasks.filter(t=>t.status==="Done").length,[tasks]);
-  const todayCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<=today&&t.status!=="Done";}).length;},[tasks]);
-  const overdueCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{const d=t.dueDate?new Date(t.dueDate):null;if(d)d.setHours(0,0,0,0);return d&&d<today&&t.status!=="Done";}).length;},[tasks]);
+  const todayCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const[y,m,dy]=t.dueDate.split("-").map(Number);return new Date(y,m-1,dy)<=today;}).length;},[tasks]);
+  const overdueCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const[y,m,dy]=t.dueDate.split("-").map(Number);return new Date(y,m-1,dy)<today;}).length;},[tasks]);
   const showWho=members.length>1;
   const isMob=window.innerWidth<=700;
 
