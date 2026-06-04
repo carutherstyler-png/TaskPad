@@ -166,24 +166,39 @@ function nextDue(due,num,unit){
   else if(unit==="Months")d.setMonth(d.getMonth()+n);
   return d.toISOString().slice(0,10);
 }
+function parseTaskDate(ds){
+  if(!ds)return null;
+  // Has time component (datetime-local format: YYYY-MM-DDTHH:MM)
+  if(ds.includes("T")){
+    return new Date(ds); // datetime-local is local time, no timezone issue
+  }
+  // Date only
+  const[y,m,day]=ds.split("-").map(Number);
+  return new Date(y,m-1,day);
+}
+
 function formatRelDate(ds){
   if(!ds)return null;
-  // Parse date parts directly to avoid UTC timezone shift
-  const[y,m,day]=ds.split("-").map(Number);
+  const hasTime=ds.includes("T");
+  const d=parseTaskDate(ds);
   const today=new Date();today.setHours(0,0,0,0);
-  const d=new Date(y,m-1,day); // local midnight
-  const diff=Math.round((d-today)/(1000*60*60*24));
-  if(diff===0)return{label:"Today",color:"#e2445c"};
-  if(diff===1)return{label:"Tomorrow",color:"#fdab3d"};
-  if(diff===-1)return{label:"Yesterday",color:"#e2445c"};
-  if(diff<0)return{label:`${Math.abs(diff)}d overdue`,color:"#e2445c"};
-  if(diff<=7)return{label:`${diff}d`,color:"#fdab3d"};
-  return{label:d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),color:"#676879"};
+  const dDate=new Date(d);dDate.setHours(0,0,0,0);
+  const diff=Math.round((dDate-today)/(1000*60*60*24));
+  // Format time suffix if present
+  const timeSuffix=hasTime?` ${d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}`:""
+  if(diff===0)return{label:"Today"+timeSuffix,color:"#e2445c"};
+  if(diff===1)return{label:"Tomorrow"+timeSuffix,color:"#fdab3d"};
+  if(diff===-1)return{label:"Yesterday"+timeSuffix,color:"#e2445c"};
+  if(diff<0)return{label:`${Math.abs(diff)}d overdue${timeSuffix}`,color:"#e2445c"};
+  if(diff<=7)return{label:`${diff}d${timeSuffix}`,color:"#fdab3d"};
+  return{label:dDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})+timeSuffix,color:"#676879"};
 }
 function isOverdue(task){
   if(!task.dueDate||task.status==="Done")return false;
-  const[y,m,day]=task.dueDate.split("-").map(Number);
-  const d=new Date(y,m-1,day);
+  const d=parseTaskDate(task.dueDate);
+  const now=new Date();
+  // If has time, compare against now; if date only, compare against start of day
+  if(task.dueDate.includes("T"))return d<now;
   const today=new Date();today.setHours(0,0,0,0);
   return d<today;
 }
@@ -799,13 +814,37 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
       </td>
       <td style={{...td,padding:0}}><InlineSelect value={task.status} options={STATUS_OPTIONS} onChange={v=>upd("status",v)}/></td>
       <td style={{...td,padding:0}}><InlineSelect value={task.priority} options={PRIORITY_OPTIONS} onChange={v=>upd("priority",v)}/></td>
-      <td style={{...td}}>
-        <input type="date" value={task.dueDate||""} onChange={e=>upd("dueDate",e.target.value)}
-          style={{border:"none",outline:"none",background:"transparent",fontFamily:"inherit",fontSize:12,color:overdue?"#e2445c":"#323338",cursor:"pointer",width:0,opacity:0,position:"absolute"}} id={`date-${task.id}`}/>
-        <span onClick={()=>{const el=document.getElementById(`date-${task.id}`);el.showPicker?el.showPicker():el.click();}}
-          style={{fontSize:12,fontWeight:600,color:rel?rel.color:"#c5c7d4",cursor:"pointer",whiteSpace:"nowrap"}}>
-          {rel?rel.label:"No date"}
-        </span>
+      <td style={{...td,position:"relative"}}>
+        {(()=>{
+          const[showPicker,setShowPicker]=React.useState(false);
+          const hasTime=task.dueDate&&task.dueDate.includes("T");
+          const dtVal=task.dueDate?(hasTime?task.dueDate:task.dueDate+"T00:00"):"";
+          return(<>
+            <span onClick={()=>setShowPicker(p=>!p)}
+              style={{fontSize:12,fontWeight:600,color:rel?rel.color:"#c5c7d4",cursor:"pointer",whiteSpace:"nowrap",display:"block"}}>
+              {rel?rel.label:"No date"}
+            </span>
+            {showPicker&&(
+              <div style={{position:"fixed",zIndex:9999,background:"#fff",border:"1px solid #e6e9ef",borderRadius:10,padding:12,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",top:"auto",marginTop:4}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#676879",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Date & Time</div>
+                <input type="datetime-local" value={dtVal}
+                  onChange={e=>{upd("dueDate",e.target.value||"");}}
+                  style={{border:"1.5px solid #e6e9ef",borderRadius:6,padding:"6px 8px",fontFamily:"inherit",fontSize:13,outline:"none",width:"100%"}}
+                  onFocus={e=>e.target.style.borderColor="#0073ea"}
+                  onBlur={e=>{e.target.style.borderColor="#e6e9ef";setTimeout(()=>setShowPicker(false),200);}}
+                  autoFocus/>
+                <div style={{display:"flex",gap:6,marginTop:8}}>
+                  <button onClick={()=>{const d=new Date();upd("dueDate",d.toISOString().slice(0,16));setShowPicker(false);}}
+                    style={{flex:1,background:"#f5f6f8",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",color:"#323338"}}>Now</button>
+                  <button onClick={()=>{upd("dueDate","");setShowPicker(false);}}
+                    style={{flex:1,background:"#fce8ec",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",color:"#e2445c"}}>Clear</button>
+                  <button onClick={()=>setShowPicker(false)}
+                    style={{flex:1,background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",fontWeight:600}}>Done</button>
+                </div>
+              </div>
+            )}
+          </>);
+        })()}
       </td>
       <td style={{...td}}><PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})}/></td>
       <td style={{...td}}><PopoverPill num={task.recNum} unit={task.recUnit} defaultUnit="Days" units={REC_UNITS} color="#0073ea" bg="#eaf2ff" border="1.5px solid #0073ea33" icon="↻" placeholder="Recurrence" onSave={(n,u)=>upd({recNum:n,recUnit:u})}/></td>
@@ -895,7 +934,8 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
         <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <span style={{fontSize:11,color:"#676879",fontWeight:600}}>DUE</span>
-            <input type="date" value={task.dueDate||""} onChange={e=>upd("dueDate",e.target.value)}
+            <input type="datetime-local" value={task.dueDate&&task.dueDate.includes("T")?task.dueDate:task.dueDate?task.dueDate+"T00:00":""}
+              onChange={e=>upd("dueDate",e.target.value||"")}
               style={{border:"1px solid #e6e9ef",borderRadius:6,padding:"4px 8px",fontFamily:"inherit",fontSize:12,color:overdue?"#e2445c":"#323338",outline:"none"}}/>
           </div>
           <PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})} large/>
@@ -984,18 +1024,35 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
                   <col style={{width:cols.duration}}/><col style={{width:cols.recurrence}}/><col style={{width:cols.notes}}/><col style={{width:36}}/>
                 </colgroup>
                 <tbody>
-                  <tr style={{background:"#f0f6ff",borderBottom:"1px solid #e6e9ef",borderLeft:`3px solid ${group.color}`}}>
+                  <tr data-newrow="1" style={{background:"#f0f6ff",borderBottom:"1px solid #e6e9ef",borderLeft:`3px solid ${group.color}`}}>
                     <td style={{width:24,padding:"0 4px",verticalAlign:"middle",borderRight:"1px solid #e6e9ef"}}/>
                     {showWho&&<td style={{width:cols.who,padding:0,borderRight:"1px solid #e6e9ef",verticalAlign:"middle"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:42}}>
-                        <AssigneePill value={newTask.assignee} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)onCommitNewTask(f=>"assignee",m.uid);})}/>
+                        <AssigneePill value={newTask.assignee} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)onUpdateNewTask("assignee",m.uid);})}/>
                       </div>
                     </td>}
                     <td style={{borderRight:"1px solid #e6e9ef",padding:"0 10px",verticalAlign:"middle"}}>
-                      <input autoFocus placeholder="Item name… (Enter to save, Esc to cancel)"
+                      <input
+                        autoFocus
+                        ref={el=>{if(el)el.focus();}}
+                        placeholder="Type item name…"
                         style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:14,background:"transparent",color:"#323338"}}
-                        onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){onCommitNewTask(e.target.value);}if(e.key==="Escape")onCancelNewTask();}}
-                        onBlur={e=>{if(e.target.value.trim())onCommitNewTask(e.target.value);else onCancelNewTask();}}/>
+                        onKeyDown={e=>{
+                          if(e.key==="Enter"&&e.target.value.trim()){e.preventDefault();onCommitNewTask(e.target.value);}
+                          if(e.key==="Escape")onCancelNewTask();
+                        }}
+                        onBlur={e=>{
+                          const val=e.target.value.trim();
+                          setTimeout(()=>{
+                            // Check if focus moved outside the new row entirely
+                            const active=document.activeElement;
+                            const inRow=active&&active.closest&&active.closest("[data-newrow]");
+                            if(!inRow){
+                              if(val)onCommitNewTask(val);
+                              else onCancelNewTask();
+                            }
+                          },150);
+                        }}/>
                     </td>
                     <td style={{padding:0,borderRight:"1px solid #e6e9ef",verticalAlign:"middle"}}>
                       <InlineSelect value={newTask.status} options={STATUS_OPTIONS} onChange={v=>onUpdateNewTask("status",v)}/>
@@ -1003,9 +1060,10 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
                     <td style={{padding:0,borderRight:"1px solid #e6e9ef",verticalAlign:"middle"}}>
                       <InlineSelect value={newTask.priority} options={PRIORITY_OPTIONS} onChange={v=>onUpdateNewTask("priority",v)}/>
                     </td>
-                    <td style={{borderRight:"1px solid #e6e9ef",padding:"0 10px",verticalAlign:"middle"}} colSpan={4}>
-                      <span style={{fontSize:12,color:"#c5c7d4"}}>Press Enter to save</span>
+                    <td style={{borderRight:"1px solid #e6e9ef",padding:"0 10px",verticalAlign:"middle"}}>
+                      <span style={{fontSize:12,color:"#c5c7d4"}}>Tab or click away to save · Esc to cancel</span>
                     </td>
+                    <td colSpan={3} style={{borderRight:"1px solid #e6e9ef"}}/>
                     <td style={{verticalAlign:"middle",textAlign:"center"}}>
                       <button onClick={onCancelNewTask} style={{background:"none",border:"none",cursor:"pointer",color:"#c5c7d4",fontSize:17,padding:"0 8px"}}>×</button>
                     </td>
@@ -1148,8 +1206,13 @@ function App(){
       snap=>{
         if(snap.exists){
           const data=snap.data();
-          setBoard(b=>b?{...b,...data,id:snap.id}:null);
-          localStorage.setItem("docket_board",JSON.stringify({...board,...data,id:snap.id}));
+          // Only update fields that can change (groups, name, inviteCode) - don't replace whole board
+          setBoard(b=>{
+            if(!b)return null;
+            const updated={...b,groups:data.groups||b.groups,name:data.name||b.name,inviteCode:data.inviteCode||b.inviteCode};
+            localStorage.setItem("docket_board",JSON.stringify(updated));
+            return updated;
+          });
         }
       },
       err=>{console.error("Board error:",err);}
@@ -1326,15 +1389,15 @@ function App(){
       const vis=!activeUserId||activeUserId===uid||members.length<=1;
       // In shared board show all unless filtered by user
       if(search&&!t.name.toLowerCase().includes(search.toLowerCase()))return false;
-      if(filter==="today"){if(!t.dueDate||t.status==="Done")return false;const[y,mo,dy]=t.dueDate.split("-").map(Number);const d=new Date(y,mo-1,dy);return d<=today;}
-      if(filter==="overdue"){if(!t.dueDate||t.status==="Done")return false;const[y,mo,dy]=t.dueDate.split("-").map(Number);const d=new Date(y,mo-1,dy);return d<today;}
+      if(filter==="today"){if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<=today;}
+      if(filter==="overdue"){if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<today;}
       return true;
     });
   },[sorted,activeUserId,search,filter,members]);
 
   const doneCount=useMemo(()=>tasks.filter(t=>t.status==="Done").length,[tasks]);
-  const todayCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const[y,m,dy]=t.dueDate.split("-").map(Number);return new Date(y,m-1,dy)<=today;}).length;},[tasks]);
-  const overdueCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const[y,m,dy]=t.dueDate.split("-").map(Number);return new Date(y,m-1,dy)<today;}).length;},[tasks]);
+  const todayCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<=today;}).length;},[tasks]);
+  const overdueCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<today;}).length;},[tasks]);
   const showWho=members.length>1;
   const isMob=window.innerWidth<=700;
 
