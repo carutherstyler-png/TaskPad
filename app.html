@@ -408,25 +408,19 @@ function ProfileModal({user,members,boardId,onClose}){
 }
 
 // ── Board Settings Modal ──
-function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave}){
+function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave,onSaveBoardName}){
   const[boardName,setBoardName]=useState(board.name);
   const[saving,setSaving]=useState(false);
   
   const[savedState,setSavedState]=useState(false);
 
   const saveBoardName=async()=>{
-    console.log("saveBoardName called:", boardName, "board:", board?.id);
     if(!boardName.trim()||boardName===board.name)return;
     setSaving(true);
     try{
-      await db.collection("boards").doc(board.id).set({name:boardName.trim()},{merge:true});
-      onBoardUpdate({...board,name:boardName.trim()});
+      await onSaveBoardName(boardName.trim());
       setSavedState(true);setTimeout(()=>setSavedState(false),2000);
-      console.log("saveBoardName success");
-    }catch(e){
-      console.error("saveBoardName error:",e);
-      alert("Error: "+e.message);
-    }
+    }catch(e){alert("Error: "+e.message);}
     setSaving(false);
   };
 
@@ -1086,7 +1080,15 @@ function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups})
 // ── Main App ──
 function App(){
   const[authUser,setAuthUser]=useState(undefined); // undefined=loading
-  const[board,setBoard]=useState(null);
+  const[board,setBoard]=useState(()=>{
+    try{const saved=localStorage.getItem("docket_board");return saved?JSON.parse(saved):null;}
+    catch(e){return null;}
+  });
+  const selectBoard=useCallback((b)=>{
+    setBoard(b);
+    if(b)localStorage.setItem("docket_board",JSON.stringify(b));
+    else localStorage.removeItem("docket_board");
+  },[]);
   const[tasks,setTasks]=useState([]);
   const[members,setMembers]=useState([]);
   const[activeUserId,setActiveUserId]=useState(null);
@@ -1271,7 +1273,7 @@ function App(){
     console.log("saving newGroups:", newGroups);
     try{
       await db.collection("boards").doc(board.id).set({groups:newGroups},{merge:true});
-      setBoard(b=>({...b,groups:newGroups}));
+      selectBoard({...board,groups:newGroups});
       setAddingGroup(false);
       setNewGroupName("");
       console.log("addGroup success");
@@ -1283,8 +1285,8 @@ function App(){
 
   const deleteGroup=async(groupId)=>{
     const newGroups=groups.filter(g=>g.id!==groupId);
-    await boardRef(board.id).set({groups:newGroups},{merge:true});
-    setBoard(b=>({...b,groups:newGroups}));
+    await db.collection("boards").doc(board.id).set({groups:newGroups},{merge:true});
+    selectBoard({...board,groups:newGroups});
     // Delete tasks in that group
     const groupTasks=tasks.filter(t=>t.group===groupId);
     if(groupTasks.length>0){
@@ -1296,8 +1298,14 @@ function App(){
 
   const renameGroup=async(groupId,newLabel)=>{
     const newGroups=groups.map(g=>g.id===groupId?{...g,label:newLabel}:g);
-    await boardRef(board.id).set({groups:newGroups},{merge:true});
-    setBoard(b=>({...b,groups:newGroups}));
+    await db.collection("boards").doc(board.id).set({groups:newGroups},{merge:true});
+    selectBoard({...board,groups:newGroups});
+  };
+
+  const saveBoardNameApp=async(newName)=>{
+    if(!newName.trim()||newName===board.name)return;
+    await db.collection("boards").doc(board.id).set({name:newName.trim()},{merge:true});
+    selectBoard({...board,name:newName.trim()});
   };
 
   const filtered=useMemo(()=>{
@@ -1324,7 +1332,7 @@ function App(){
   // Not logged in
   if(!authUser)return<AuthScreen/>;
   // No board selected
-  if(!board)return<BoardSelector user={authUser} onSelect={setBoard}/>;
+  if(!board)return<BoardSelector user={authUser} onSelect={selectBoard}/>;
 
   return(
     <div style={{minHeight:"100vh",background:"#f5f6f8"}}>
@@ -1333,7 +1341,7 @@ function App(){
 
       {/* Top bar */}
       <div className="top-bar" style={{background:"#fff",borderBottom:"1px solid #e6e9ef",padding:"10px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",position:"sticky",top:0,zIndex:100}}>
-        <button onClick={()=>setBoard(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#676879",fontSize:13,display:"flex",alignItems:"center",gap:4,fontFamily:"inherit",padding:0}}>
+        <button onClick={()=>selectBoard(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#676879",fontSize:13,display:"flex",alignItems:"center",gap:4,fontFamily:"inherit",padding:0}}>
           <span style={{fontSize:16}}>‹</span>
         </button>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1449,12 +1457,13 @@ function App(){
 
       {showProfile&&<ProfileModal user={authUser} members={members} boardId={board?.id} onClose={()=>setShowProfile(false)}/>}
       {showBoardSettings&&<BoardSettingsModal board={board} members={members} user={authUser} onClose={()=>setShowBoardSettings(false)}
-        onBoardUpdate={b=>setBoard(b)}
+        onSaveBoardName={saveBoardNameApp}
+        onBoardUpdate={b=>selectBoard(b)}
         onLeave={async()=>{
           if(!confirm("Leave this board?"))return;
           await membersRef(board.id).doc(authUser.uid).delete();
           await db.collection("userBoards").doc(authUser.uid).update({boardIds:firebase.firestore.FieldValue.arrayRemove(board.id)});
-          setBoard(null);setShowBoardSettings(false);
+          selectBoard(null);setShowBoardSettings(false);
         }}/>}
       {showActivity&&<ActivityPanel boardId={board.id} members={members} onClose={()=>setShowActivity(false)}/>}
     </div>
