@@ -814,7 +814,7 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
       </td>
       <td style={{...td,padding:0}}><InlineSelect value={task.status} options={STATUS_OPTIONS} onChange={v=>upd("status",v)}/></td>
       <td style={{...td,padding:0}}><InlineSelect value={task.priority} options={PRIORITY_OPTIONS} onChange={v=>upd("priority",v)}/></td>
-      <td style={{...td,position:"relative"}}>
+      <td style={{...td,position:"relative",overflow:"visible"}}>
         {(()=>{
           const[showPicker,setShowPicker]=React.useState(false);
           const hasTime=task.dueDate&&task.dueDate.includes("T");
@@ -825,7 +825,7 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
               {rel?rel.label:"No date"}
             </span>
             {showPicker&&(
-              <div style={{position:"fixed",zIndex:9999,background:"#fff",border:"1px solid #e6e9ef",borderRadius:10,padding:12,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",top:"auto",marginTop:4}}>
+              <div style={{position:"absolute",zIndex:9999,background:"#fff",border:"1px solid #e6e9ef",borderRadius:10,padding:12,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",top:"100%",left:0,marginTop:4,minWidth:220}}>
                 <div style={{fontSize:11,fontWeight:700,color:"#676879",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Date & Time</div>
                 <input type="datetime-local" value={dtVal}
                   onChange={e=>{upd("dueDate",e.target.value||"");}}
@@ -1142,8 +1142,10 @@ function App(){
     try{const saved=localStorage.getItem("docket_board");return saved?JSON.parse(saved):null;}
     catch(e){return null;}
   });
+  const boardIdRef=useRef(null);
   const selectBoard=useCallback((b)=>{
     setBoard(b);
+    boardIdRef.current=b?.id||null;
     if(b)localStorage.setItem("docket_board",JSON.stringify(b));
     else localStorage.removeItem("docket_board");
   },[]);
@@ -1201,6 +1203,7 @@ function App(){
   // Board data listeners
   useEffect(()=>{
     if(!board?.id)return;
+    boardIdRef.current=board.id;
     // Listen to board document for group/name changes
     const unsubBoard=db.collection("boards").doc(board.id).onSnapshot(
       snap=>{
@@ -1250,10 +1253,12 @@ function App(){
 
   const updateTask=useCallback(async(id,fields)=>{
     const task=tasks.find(t=>t.id===id);if(!task)return;
+    const bid=boardIdRef.current||board?.id;
+    if(!bid){console.error("No board ID for updateTask");return;}
     const updated={...task,...fields};
     if(fields.status==="Done"&&task.recNum&&task.recNum!=="0"&&task.recUnit){
       const rescheduled={...updated,status:"Not Started",dueDate:nextDue(task.dueDate,task.recNum,task.recUnit)};
-      setSyncing(true);await saveTask(board.id,rescheduled).finally(()=>setSyncing(false));
+      setSyncing(true);await saveTask(bid,rescheduled).finally(()=>setSyncing(false));
       showToast("↻ Rescheduled to "+(formatRelDate(rescheduled.dueDate)?.label||rescheduled.dueDate));
       logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"completed (rescheduled)",task.name);
       return;
@@ -1262,13 +1267,15 @@ function App(){
     if(fields.status&&fields.status!==task.status)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,`marked "${fields.status}"`,task.name);
     else if(fields.name&&fields.name!==task.name)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"renamed",fields.name);
     else if(fields.assignee&&fields.assignee!==task.assignee)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"reassigned",task.name);
-    setSyncing(true);await saveTask(board.id,updated).finally(()=>setSyncing(false));
+    setSyncing(true);await saveTask(bid,updated).finally(()=>setSyncing(false));
   },[tasks,board,authUser,showToast]);
 
   const deleteTask=useCallback(async id=>{
+    const bid=boardIdRef.current||board?.id;
+    if(!bid)return;
     const task=tasks.find(t=>t.id===id);
-    if(task)logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"deleted",task.name);
-    setSyncing(true);await deleteTaskDb(board.id,id).finally(()=>setSyncing(false));
+    if(task)logActivity(bid,authUser.uid,authUser.displayName||authUser.email,"deleted",task.name);
+    setSyncing(true);await deleteTaskDb(bid,id).finally(()=>setSyncing(false));
   },[tasks,board,authUser]);
 
   const addTask=useCallback(group=>{
@@ -1277,10 +1284,15 @@ function App(){
 
   const commitNewTask=useCallback(async name=>{
     if(!newTask||!name.trim())return;
+    const bid=boardIdRef.current||board?.id;
+    if(!bid){console.error("No board ID for commitNewTask");return;}
     const t={...newTask,name:name.trim(),order:Date.now()};
     setNewTask(null);setSyncing(true);
-    await saveTask(board.id,t).finally(()=>setSyncing(false));
-    logActivity(board.id,authUser.uid,authUser.displayName||authUser.email,"created",name.trim());
+    try{
+      await saveTask(bid,t);
+      logActivity(bid,authUser.uid,authUser.displayName||authUser.email,"created",name.trim());
+    }catch(e){console.error("commitNewTask error:",e);}
+    setSyncing(false);
   },[newTask,board,authUser]);
 
   const onDragStart=useCallback(id=>setDrag({draggingId:id,overId:null,overGroup:null}),[]);
