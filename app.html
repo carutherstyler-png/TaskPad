@@ -269,9 +269,19 @@ function GlobalPopover(){
 }
 function openPopover(el,opts){
   const r=el.getBoundingClientRect();
-  const popH=52;const spaceBelow=window.innerHeight-r.bottom;
-  const top=spaceBelow>=popH+10?r.bottom+6:r.top-popH-6;
-  const left=Math.min(Math.max(r.left,8),window.innerWidth-240);
+  const popH=60;
+  const popW=240;
+  // Always prefer above on mobile to avoid scroll
+  const isMobile=window.innerWidth<=700;
+  let top,left;
+  if(isMobile){
+    // On mobile, show above the pill always to avoid keyboard/scroll issues
+    top=Math.max(r.top-popH-8, 8);
+  } else {
+    const spaceBelow=window.innerHeight-r.bottom;
+    top=spaceBelow>=popH+10?r.bottom+6:r.top-popH-8;
+  }
+  left=Math.min(Math.max(r.left,8),window.innerWidth-popW-8);
   if(_setGlobalPop)_setGlobalPop({id:Math.random(),top,left,...opts});
 }
 
