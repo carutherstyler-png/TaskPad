@@ -1207,19 +1207,28 @@ function App(){
     })();
   },[urlInviteCode,authUser,board]);
 
-  // Board data listeners
+  // Board data listeners - only re-run when board ID actually changes
+  const [boardId, setBoardId] = useState(board?.id||null);
   useEffect(()=>{
-    if(!board?.id)return;
-    boardIdRef.current=board.id;
-    // Listen to board document for group/name changes
-    const unsubBoard=db.collection("boards").doc(board.id).onSnapshot(
+    if(board?.id&&board.id!==boardId){setBoardId(board.id);}
+  },[board?.id]);
+
+  useEffect(()=>{
+    if(!boardId)return;
+    boardIdRef.current=boardId;
+
+    // Listen to board document for group/name/inviteCode changes only
+    const unsubBoard=db.collection("boards").doc(boardId).onSnapshot(
       snap=>{
         if(snap.exists){
           const data=snap.data();
-          // Only update fields that can change (groups, name, inviteCode) - don't replace whole board
           setBoard(b=>{
             if(!b)return null;
-            const updated={...b,groups:data.groups||b.groups,name:data.name||b.name,inviteCode:data.inviteCode||b.inviteCode};
+            const updated={...b,
+              groups:data.groups!==undefined?data.groups:b.groups,
+              name:data.name||b.name,
+              inviteCode:data.inviteCode||b.inviteCode
+            };
             localStorage.setItem("docket_board",JSON.stringify(updated));
             return updated;
           });
@@ -1227,16 +1236,19 @@ function App(){
       },
       err=>{console.error("Board error:",err);}
     );
-    const unsubTasks=tasksRef(board.id).onSnapshot(
-      snap=>{setTasks(snap.docs.map(d=>({group:"home",assignee:authUser?.uid||"",order:0,...d.data(),id:d.id})));},
+
+    const unsubTasks=db.collection("boards").doc(boardId).collection("tasks").onSnapshot(
+      snap=>{setTasks(snap.docs.map(d=>({order:0,...d.data(),id:d.id})));},
       err=>{console.error("Items error:",err);}
     );
-    const unsubMembers=membersRef(board.id).onSnapshot(
+
+    const unsubMembers=db.collection("boards").doc(boardId).collection("members").onSnapshot(
       snap=>{setMembers(snap.docs.map(d=>d.data()));},
       err=>{console.error("Members error:",err);}
     );
+
     return()=>{unsubBoard();unsubTasks();unsubMembers();};
-  },[board?.id]);
+  },[boardId]);
 
   const[showProfile,setShowProfile]=useState(false);
   const[showBoardSettings,setShowBoardSettings]=useState(false);
