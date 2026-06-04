@@ -1283,15 +1283,18 @@ function App(){
   },[authUser]);
 
   const commitNewTask=useCallback(async name=>{
-    if(!newTask||!name.trim())return;
+    console.log("[commitNewTask] called with:", name, "newTask:", newTask?.id, "board:", board?.id, "boardIdRef:", boardIdRef.current);
+    if(!newTask||!name.trim()){console.log("[commitNewTask] aborted - no newTask or empty name");return;}
     const bid=boardIdRef.current||board?.id;
-    if(!bid){console.error("No board ID for commitNewTask");return;}
+    if(!bid){console.error("[commitNewTask] No board ID!");return;}
     const t={...newTask,name:name.trim(),order:Date.now()};
+    console.log("[commitNewTask] saving task to board:", bid, "task:", t.id, t.name);
     setNewTask(null);setSyncing(true);
     try{
-      await saveTask(bid,t);
-      logActivity(bid,authUser.uid,authUser.displayName||authUser.email,"created",name.trim());
-    }catch(e){console.error("commitNewTask error:",e);}
+      await db.collection("boards").doc(bid).collection("tasks").doc(t.id).set(t);
+      console.log("[commitNewTask] SUCCESS saved task:", t.name);
+      logActivity(bid,authUser?.uid,authUser?.displayName||authUser?.email,"created",name.trim());
+    }catch(e){console.error("[commitNewTask] FAILED:",e.code,e.message);alert("Save failed: "+e.message);}
     setSyncing(false);
   },[newTask,board,authUser]);
 
