@@ -235,7 +235,13 @@ function GlobalPopover(){
   const inputRef=useRef();
   const[num,setNum]=useState("");
   const[unit,setUnit]=useState("");
-  useEffect(()=>{if(pop){setNum(pop.num&&pop.num!=="0"?pop.num:"");setUnit(pop.unit||pop.defaultUnit);setTimeout(()=>inputRef.current?.focus(),50);}},[pop?.id]);
+  useEffect(()=>{
+    if(pop){
+      setNum(pop.num&&pop.num!=="0"&&pop.num!==""?String(pop.num):"");
+      setUnit(pop.unit||pop.defaultUnit);
+      setTimeout(()=>{ if(inputRef.current){inputRef.current.focus();inputRef.current.select();} },50);
+    }
+  },[pop?.id]);
   useEffect(()=>{
     if(!pop)return;
     const h=e=>{const el=document.getElementById("gpop");if(el&&!el.contains(e.target)){pop.onSave(num,unit);setPop(null);}};
@@ -922,7 +928,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
               style={{flex:1,border:"none",outline:"none",fontFamily:"inherit",fontSize:15,fontWeight:600,background:"transparent",padding:0}}/>
           :<span onClick={()=>setEditing(true)} style={{flex:1,fontSize:15,fontWeight:600,cursor:"text",textDecoration:task.status==="Done"?"line-through":"none",color:task.status==="Done"?"#c5c7d4":"#323338"}}>{task.name||"Untitled"}</span>
         }
-        <span style={{fontSize:12,fontWeight:600,color:rel?rel.color:"#c5c7d4",flexShrink:0}}>{rel?rel.label:"No date"}</span>
+        {rel&&<span style={{fontSize:12,fontWeight:600,color:rel.color,flexShrink:0}}>{rel.label}</span>}
         <DelBtn onDelete={()=>onDelete(task.id)}/>
       </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:expanded?8:0}}>
@@ -934,9 +940,28 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
         <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <span style={{fontSize:11,color:"#676879",fontWeight:600}}>DUE</span>
-            <input type="datetime-local" value={task.dueDate&&task.dueDate.includes("T")?task.dueDate:task.dueDate?task.dueDate+"T00:00":""}
-              onChange={e=>upd("dueDate",e.target.value||"")}
-              style={{border:"1px solid #e6e9ef",borderRadius:6,padding:"4px 8px",fontFamily:"inherit",fontSize:12,color:overdue?"#e2445c":"#323338",outline:"none"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <input type="date"
+                value={task.dueDate?task.dueDate.split("T")[0]:""}
+                onChange={e=>{
+                  const d=e.target.value;
+                  // Preserve existing time if any
+                  const existingTime=task.dueDate?.includes("T")?task.dueDate.split("T")[1]:"";
+                  upd("dueDate",existingTime?d+"T"+existingTime:d);
+                }}
+                style={{border:"1px solid #e6e9ef",borderRadius:6,padding:"4px 8px",fontFamily:"inherit",fontSize:12,color:overdue?"#e2445c":"#323338",outline:"none",flex:1}}/>
+              <input type="time"
+                value={task.dueDate?.includes("T")?task.dueDate.split("T")[1]:""}
+                onChange={e=>{
+                  const t=e.target.value;
+                  const existingDate=task.dueDate?task.dueDate.split("T")[0]:"";
+                  if(existingDate)upd("dueDate",existingDate+"T"+t);
+                }}
+                placeholder="Time"
+                style={{border:"1px solid #e6e9ef",borderRadius:6,padding:"4px 8px",fontFamily:"inherit",fontSize:12,color:"#323338",outline:"none",width:90}}/>
+              {task.dueDate&&<button onClick={()=>upd("dueDate","")}
+                style={{background:"none",border:"none",color:"#c5c7d4",fontSize:16,cursor:"pointer",padding:"0 2px",lineHeight:1,flexShrink:0}}>×</button>}
+            </div>
           </div>
           <PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})} large/>
           <PopoverPill num={task.recNum} unit={task.recUnit} defaultUnit="Days" units={REC_UNITS} color="#0073ea" bg="#eaf2ff" border="1.5px solid #0073ea33" icon="↻" placeholder="Recurrence" onSave={(n,u)=>upd({recNum:n,recUnit:u})} large/>
