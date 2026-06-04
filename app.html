@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,interactive-widget=resizes-content"/>
-<title>Task Pad</title>
+<title>Docket</title>
 <meta name="theme-color" content="#0073ea"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Task Pad"/>
+<meta name="apple-mobile-web-app-title" content="Docket"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -119,9 +119,9 @@ const{useState,useEffect,useRef,useCallback,useMemo,memo}=React;
 
 const FIREBASE_CONFIG={
   apiKey:"AIzaSyDUyNo3zA27erlKUsM0BhqaODy7lauu6Ks",
-  authDomain:"task-pad-dbd31.firebaseapp.com",
-  projectId:"task-pad-dbd31",
-  storageBucket:"task-pad-dbd31.firebasestorage.app",
+  authDomain:"docket-dbd31.firebaseapp.com",
+  projectId:"docket-dbd31",
+  storageBucket:"docket-dbd31.firebasestorage.app",
   messagingSenderId:"223854757600",
   appId:"1:223854757600:web:ab8f901435c57990c5b285"
 };
@@ -195,7 +195,7 @@ function exportCSV(tasks,members){
   const headers=["Name","Status","Priority","Due Date","Duration","Recurrence","Group","Assignee","Notes"];
   const rows=tasks.map(t=>[t.name,t.status,t.priority,t.dueDate||"",t.durNum?`${t.durNum} ${t.durUnit}`:"",t.recNum?`${t.recNum} ${t.recUnit}`:"",t.group,resolveUser(t.assignee,members).label,t.notes||""].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(","));
   const csv=[headers.join(","),...rows].join("\n");
-  const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="taskpad.csv";a.click();
+  const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="docket.csv";a.click();
 }
 
 // ── Firebase helpers ──
@@ -466,7 +466,7 @@ function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave}){
               if(btn){btn.textContent="✓ Copied!";setTimeout(()=>btn.textContent="Copy link",2000);}
             });
             const shareLink=()=>{
-              if(navigator.share){navigator.share({title:"Join me on Task Pad",text:"Click to join my Task Pad board",url:inviteLink});}
+              if(navigator.share){navigator.share({title:"Join me on Docket",text:"Click to join my Docket board",url:inviteLink});}
               else copyLink();
             };
             return(<>
@@ -611,7 +611,7 @@ function AuthScreen({onAuth}){
         <div style={{width:56,height:56,borderRadius:14,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
           <svg width="28" height="28" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
         </div>
-        <div style={{fontSize:26,fontWeight:700,color:"#323338"}}>Task Pad</div>
+        <div style={{fontSize:26,fontWeight:700,color:"#323338"}}>Docket</div>
         <div style={{fontSize:14,color:"#676879",marginTop:4}}>Organize your tasks, together</div>
       </div>
       <div className="auth-card">
@@ -713,7 +713,7 @@ function BoardSelector({user,onSelect}){
           <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <svg width="18" height="18" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
           </div>
-          <span style={{fontSize:20,fontWeight:700,color:"#323338"}}>Task Pad</span>
+          <span style={{fontSize:20,fontWeight:700,color:"#323338"}}>Docket</span>
           <button onClick={()=>auth.signOut()} style={{marginLeft:"auto",background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 12px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>Sign out</button>
         </div>
 
@@ -991,7 +991,7 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
                       </div>
                     </td>}
                     <td style={{borderRight:"1px solid #e6e9ef",padding:"0 10px",verticalAlign:"middle"}}>
-                      <input autoFocus placeholder="Task name… (Enter to save, Esc to cancel)"
+                      <input autoFocus placeholder="Item name… (Enter to save, Esc to cancel)"
                         style={{width:"100%",border:"none",outline:"none",fontFamily:"inherit",fontSize:14,background:"transparent",color:"#323338"}}
                         onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){onCommitNewTask(e.target.value);}if(e.key==="Escape")onCancelNewTask();}}
                         onBlur={e=>{if(e.target.value.trim())onCommitNewTask(e.target.value);else onCancelNewTask();}}/>
@@ -1061,7 +1061,7 @@ function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups})
           <span style={{fontWeight:700,fontSize:15,color:"#323338"}}>Add to {group?.label||"group"}</span>
           <button onClick={onCancel} style={{marginLeft:"auto",background:"none",border:"none",color:"#c5c7d4",fontSize:22,cursor:"pointer",lineHeight:1,padding:0}}>×</button>
         </div>
-        <input ref={inputRef} className="bar-input" placeholder="Task name…" value={name}
+        <input ref={inputRef} className="bar-input" placeholder="Item name…" value={name}
           onChange={e=>setName(e.target.value)}
           onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();save();}if(e.key==="Escape")onCancel();}}
           style={{marginBottom:12,width:"100%"}}/>
@@ -1070,7 +1070,7 @@ function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups})
           <StatusPill value={newTask.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("status",v))} large/>
           <StatusPill value={newTask.priority} options={PRIORITY_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("priority",v))} large/>
         </div>
-        <button className="bar-add" onClick={save} onTouchEnd={e=>{e.preventDefault();save();}} style={{width:"100%",borderRadius:10,padding:13,fontSize:16}}>Add Task</button>
+        <button className="bar-add" onClick={save} onTouchEnd={e=>{e.preventDefault();save();}} style={{width:"100%",borderRadius:10,padding:13,fontSize:16}}>Add Item</button>
       </div>
     </div>
   );
@@ -1136,7 +1136,7 @@ function App(){
     if(!board)return;
     const unsubTasks=tasksRef(board.id).onSnapshot(
       snap=>{setTasks(snap.docs.map(d=>({group:"home",assignee:authUser?.uid||"",order:0,...d.data(),id:d.id})));},
-      err=>{console.error("Tasks error:",err);}
+      err=>{console.error("Items error:",err);}
     );
     const unsubMembers=membersRef(board.id).onSnapshot(
       snap=>{setMembers(snap.docs.map(d=>d.data()));},
@@ -1447,7 +1447,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 
 <script>
-const SW=`const CACHE='taskpad-v1';self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/'])));self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>caches.match('/')));});`;
+const SW=`const CACHE='docket-v1';self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/'])));self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>caches.match('/')));});`;
 if('serviceWorker'in navigator){const b=new Blob([SW],{type:'application/javascript'});navigator.serviceWorker.register(URL.createObjectURL(b),{scope:'/'}).catch(()=>{});}
 let dp=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;document.getElementById('ib').style.display='flex';});
@@ -1460,7 +1460,7 @@ window.addEventListener('appinstalled',()=>{document.getElementById('ib').style.
     <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#0073ea,#9b59b6);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
       <svg width="32" height="32" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="white"/><rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
     </div>
-    <div style="font-weight:700;font-size:20px;color:#323338;margin-bottom:8px">Install Task Pad</div>
+    <div style="font-weight:700;font-size:20px;color:#323338;margin-bottom:8px">Install Docket</div>
     <div style="font-size:14px;color:#676879;margin-bottom:24px;line-height:1.5">Add to your home screen for instant access.</div>
     <button onclick="doI()" style="display:block;width:100%;background:#0073ea;color:#fff;border:none;border-radius:10px;padding:14px;font-family:'Figtree',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px">Install App</button>
     <button onclick="doD()" style="display:block;width:100%;background:none;border:none;color:#676879;font-family:'Figtree',sans-serif;font-size:14px;cursor:pointer;padding:10px">Not now</button>
