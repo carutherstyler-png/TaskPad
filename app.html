@@ -417,9 +417,11 @@ function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave}){
   const saveBoardName=async()=>{
     if(!boardName.trim()||boardName===board.name)return;
     setSaving(true);
-    await boardRef(board.id).update({name:boardName.trim()});
-    onBoardUpdate({...board,name:boardName.trim()});
-    setSavedState(true);setTimeout(()=>setSavedState(false),2000);
+    try{
+      await boardRef(board.id).set({name:boardName.trim()},{merge:true});
+      onBoardUpdate({...board,name:boardName.trim()});
+      setSavedState(true);setTimeout(()=>setSavedState(false),2000);
+    }catch(e){console.error("saveBoardName error:",e);alert("Failed to save: "+e.message);}
     setSaving(false);
   };
 
@@ -431,7 +433,7 @@ function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave}){
 
   const regenerateCode=async()=>{
     const code=Math.random().toString(36).slice(2,8).toUpperCase();
-    await boardRef(board.id).update({inviteCode:code});
+    await boardRef(board.id).set({inviteCode:code},{merge:true});
     onBoardUpdate({...board,inviteCode:code});
   };
 
@@ -1258,14 +1260,16 @@ function App(){
     const id=genId();
     const color=GROUP_COLORS[groups.length%GROUP_COLORS.length];
     const newGroups=[...groups,{id,label:newGroupName.trim(),color}];
-    await boardRef(board.id).update({groups:newGroups});
-    setBoard(b=>({...b,groups:newGroups}));
-    setAddingGroup(false);setNewGroupName("");
+    try{
+      await boardRef(board.id).set({groups:newGroups},{merge:true});
+      setBoard(b=>({...b,groups:newGroups}));
+      setAddingGroup(false);setNewGroupName("");
+    }catch(e){console.error("addGroup error:",e);alert("Failed to add group: "+e.message);}
   };
 
   const deleteGroup=async(groupId)=>{
     const newGroups=groups.filter(g=>g.id!==groupId);
-    await boardRef(board.id).update({groups:newGroups});
+    await boardRef(board.id).set({groups:newGroups},{merge:true});
     setBoard(b=>({...b,groups:newGroups}));
     // Delete tasks in that group
     const groupTasks=tasks.filter(t=>t.group===groupId);
@@ -1278,7 +1282,7 @@ function App(){
 
   const renameGroup=async(groupId,newLabel)=>{
     const newGroups=groups.map(g=>g.id===groupId?{...g,label:newLabel}:g);
-    await boardRef(board.id).update({groups:newGroups});
+    await boardRef(board.id).set({groups:newGroups},{merge:true});
     setBoard(b=>({...b,groups:newGroups}));
   };
 
