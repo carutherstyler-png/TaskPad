@@ -488,8 +488,9 @@ function ActivityPanel({boardId,members,onClose}){
   const[loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    const unsub=activityRef(boardId).orderBy("timestamp","desc").limit(50).onSnapshot(snap=>{
-      setActivities(snap.docs.map(d=>({id:d.id,...d.data()})));
+    const unsub=activityRef(boardId).limit(50).onSnapshot(snap=>{
+      const sorted=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.timestamp-a.timestamp);
+      setActivities(sorted);
       setLoading(false);
     });
     return unsub;
@@ -608,15 +609,19 @@ function BoardSelector({user,onSelect}){
   const[error,setError]=useState("");
 
   useEffect(()=>{
-    // Store user's board memberships in a top-level user doc for easy lookup
-    const unsub=db.collection("userBoards").doc(user.uid).onSnapshot(async snap=>{
-      const data=snap.data();
-      const boardIds=data?.boardIds||[];
-      if(boardIds.length===0){setBoards([]);setLoading(false);return;}
-      const boardDocs=await Promise.all(boardIds.map(id=>boardRef(id).get()));
-      setBoards(boardDocs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})));
-      setLoading(false);
-    });
+    const unsub=db.collection("userBoards").doc(user.uid).onSnapshot(
+      async snap=>{
+        try{
+          const data=snap.data();
+          const boardIds=data?.boardIds||[];
+          if(boardIds.length===0){setBoards([]);setLoading(false);return;}
+          const boardDocs=await Promise.all(boardIds.map(id=>boardRef(id).get()));
+          setBoards(boardDocs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})));
+        }catch(e){console.error("Board load error:",e);}
+        setLoading(false);
+      },
+      err=>{console.error("userBoards error:",err);setLoading(false);}
+    );
     return unsub;
   },[user.uid]);
 
@@ -1047,12 +1052,14 @@ function App(){
   // Board data listeners
   useEffect(()=>{
     if(!board)return;
-    const unsubTasks=tasksRef(board.id).onSnapshot(snap=>{
-      setTasks(snap.docs.map(d=>({group:"home",assignee:authUser?.uid||"",order:0,...d.data(),id:d.id})));
-    });
-    const unsubMembers=membersRef(board.id).onSnapshot(snap=>{
-      setMembers(snap.docs.map(d=>d.data()));
-    });
+    const unsubTasks=tasksRef(board.id).onSnapshot(
+      snap=>{setTasks(snap.docs.map(d=>({group:"home",assignee:authUser?.uid||"",order:0,...d.data(),id:d.id})));},
+      err=>{console.error("Tasks error:",err);}
+    );
+    const unsubMembers=membersRef(board.id).onSnapshot(
+      snap=>{setMembers(snap.docs.map(d=>d.data()));},
+      err=>{console.error("Members error:",err);}
+    );
     return()=>{unsubTasks();unsubMembers();};
   },[board?.id]);
 
