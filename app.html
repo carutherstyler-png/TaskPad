@@ -415,13 +415,18 @@ function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave}){
   const[savedState,setSavedState]=useState(false);
 
   const saveBoardName=async()=>{
+    console.log("saveBoardName called:", boardName, "board:", board?.id);
     if(!boardName.trim()||boardName===board.name)return;
     setSaving(true);
     try{
-      await boardRef(board.id).set({name:boardName.trim()},{merge:true});
+      await db.collection("boards").doc(board.id).set({name:boardName.trim()},{merge:true});
       onBoardUpdate({...board,name:boardName.trim()});
       setSavedState(true);setTimeout(()=>setSavedState(false),2000);
-    }catch(e){console.error("saveBoardName error:",e);alert("Failed to save: "+e.message);}
+      console.log("saveBoardName success");
+    }catch(e){
+      console.error("saveBoardName error:",e);
+      alert("Error: "+e.message);
+    }
     setSaving(false);
   };
 
@@ -1256,15 +1261,24 @@ function App(){
   const [newGroupName,setNewGroupName]=useState("");
 
   const addGroup=async()=>{
-    if(!newGroupName.trim())return;
+    console.log("addGroup called, newGroupName:", newGroupName, "board:", board?.id);
+    const name=newGroupName.trim();
+    if(!name){console.log("empty name, returning");return;}
+    if(!board?.id){console.log("no board id");return;}
     const id=genId();
-    const color=GROUP_COLORS[groups.length%GROUP_COLORS.length];
-    const newGroups=[...groups,{id,label:newGroupName.trim(),color}];
+    const color=GROUP_COLORS[(groups||[]).length%GROUP_COLORS.length];
+    const newGroups=[...(groups||[]),{id,label:name,color}];
+    console.log("saving newGroups:", newGroups);
     try{
-      await boardRef(board.id).set({groups:newGroups},{merge:true});
+      await db.collection("boards").doc(board.id).set({groups:newGroups},{merge:true});
       setBoard(b=>({...b,groups:newGroups}));
-      setAddingGroup(false);setNewGroupName("");
-    }catch(e){console.error("addGroup error:",e);alert("Failed to add group: "+e.message);}
+      setAddingGroup(false);
+      setNewGroupName("");
+      console.log("addGroup success");
+    }catch(e){
+      console.error("addGroup error:",e);
+      alert("Error: "+e.message);
+    }
   };
 
   const deleteGroup=async(groupId)=>{
