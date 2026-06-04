@@ -457,12 +457,44 @@ function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave}){
         </div>}
 
         <div className="settings-section">
-          <div className="settings-title">Invite Code</div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{background:"#f5f6f8",borderRadius:8,padding:"10px 16px",fontWeight:700,fontSize:18,letterSpacing:3,color:"#323338",flex:1,textAlign:"center"}}>{board.inviteCode}</div>
-            <button className="settings-btn secondary" onClick={()=>navigator.clipboard.writeText(board.inviteCode).then(()=>alert("Copied!"))}>Copy</button>
-            {isAdmin&&<button className="settings-btn secondary" onClick={regenerateCode}>New code</button>}
-          </div>
+          <div className="settings-title">Invite to Board</div>
+          {(()=>{
+            const baseUrl=window.location.origin+window.location.pathname;
+            const inviteLink=`${baseUrl}?join=${board.inviteCode}`;
+            const copyLink=()=>navigator.clipboard.writeText(inviteLink).then(()=>{
+              const btn=document.getElementById("copy-link-btn");
+              if(btn){btn.textContent="✓ Copied!";setTimeout(()=>btn.textContent="Copy link",2000);}
+            });
+            const shareLink=()=>{
+              if(navigator.share){navigator.share({title:"Join me on Task Pad",text:"Click to join my Task Pad board",url:inviteLink});}
+              else copyLink();
+            };
+            return(<>
+              <div style={{background:"linear-gradient(135deg,#0073ea,#9b59b6)",borderRadius:12,padding:"20px",marginBottom:12,textAlign:"center"}}>
+                <div style={{color:"rgba(255,255,255,0.7)",fontSize:12,fontWeight:600,marginBottom:8,letterSpacing:1}}>INVITE LINK</div>
+                <div style={{color:"#fff",fontSize:13,wordBreak:"break-all",marginBottom:14,opacity:0.9,lineHeight:1.4}}>{inviteLink}</div>
+                <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+                  <button id="copy-link-btn" onClick={copyLink}
+                    style={{background:"rgba(255,255,255,0.2)",color:"#fff",border:"1px solid rgba(255,255,255,0.3)",borderRadius:8,padding:"8px 16px",fontFamily:"inherit",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                    Copy link
+                  </button>
+                  <button onClick={shareLink}
+                    style={{background:"#fff",color:"#0073ea",border:"none",borderRadius:8,padding:"8px 16px",fontFamily:"inherit",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                    Share ↗
+                  </button>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{flex:1,height:1,background:"#e6e9ef"}}/>
+                <span style={{fontSize:12,color:"#c5c7d4",fontWeight:600}}>OR SHARE CODE</span>
+                <div style={{flex:1,height:1,background:"#e6e9ef"}}/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginTop:12}}>
+                <div style={{background:"#f5f6f8",borderRadius:8,padding:"10px 16px",fontWeight:700,fontSize:22,letterSpacing:6,color:"#323338",flex:1,textAlign:"center",fontFamily:"monospace"}}>{board.inviteCode}</div>
+                {isAdmin&&<button className="settings-btn secondary" onClick={regenerateCode}>New code</button>}
+              </div>
+            </>);
+          })()}
         </div>
 
         <div className="settings-section">
@@ -616,6 +648,16 @@ function BoardSelector({user,onSelect}){
   const[joiningCode,setJoiningCode]=useState("");
   const[error,setError]=useState("");
 
+  // Auto-join from URL invite code on board selector
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const code=params.get("join");
+    if(!code)return;
+    setJoiningCode(code.toUpperCase());
+    // auto-submit after short delay
+    setTimeout(()=>document.getElementById("join-board-btn")?.click(),300);
+  },[]);
+
   useEffect(()=>{
     const unsub=db.collection("userBoards").doc(user.uid).onSnapshot(
       async snap=>{
@@ -714,7 +756,7 @@ function BoardSelector({user,onSelect}){
           <div style={{display:"flex",gap:8}}>
             <input className="auth-input" placeholder="Enter 6-digit code" value={joiningCode} onChange={e=>setJoiningCode(e.target.value.toUpperCase())}
               style={{marginBottom:0,flex:1,letterSpacing:2}} maxLength={6}/>
-            <button className="auth-btn" onClick={joinBoard} style={{marginBottom:0,width:"auto",padding:"0 20px"}}>Join</button>
+            <button id="join-board-btn" className="auth-btn" onClick={joinBoard} style={{marginBottom:0,width:"auto",padding:"0 20px"}}>Join</button>
           </div>
         </div>
       </div>
@@ -1051,11 +1093,43 @@ function App(){
   const[cols,setCols]=useState({who:38,name:160,status:120,priority:108,due:100,duration:110,recurrence:130,notes:180});
   const[filter,setFilter]=useState("all");
 
+  // Check for invite code in URL
+  const urlInviteCode=useMemo(()=>{
+    const params=new URLSearchParams(window.location.search);
+    return params.get("join")||null;
+  },[]);
+
   // Auth listener
   useEffect(()=>{
     const unsub=auth.onAuthStateChanged(u=>{setAuthUser(u||null);if(u)setActiveUserId(u.uid);});
     return unsub;
   },[]);
+
+  // Auto-join board if invite code in URL
+  useEffect(()=>{
+    if(!urlInviteCode||!authUser||board)return;
+    (async()=>{
+      try{
+        const snap=await db.collection("boards").where("inviteCode","==",urlInviteCode.toUpperCase()).get();
+        if(snap.empty){showToast("Invalid invite link.");return;}
+        const boardDoc=snap.docs[0];
+        const boardData={id:boardDoc.id,...boardDoc.data()};
+        // Check if already a member
+        const memberDoc=await membersRef(boardDoc.id).doc(authUser.uid).get();
+        if(!memberDoc.exists){
+          const color=MEMBER_COLORS[Math.floor(Math.random()*MEMBER_COLORS.length)];
+          const batch=db.batch();
+          batch.set(membersRef(boardDoc.id).doc(authUser.uid),{uid:authUser.uid,displayName:authUser.displayName||authUser.email,email:authUser.email,color,role:"member",joinedAt:Date.now()});
+          batch.set(db.collection("userBoards").doc(authUser.uid),{boardIds:firebase.firestore.FieldValue.arrayUnion(boardDoc.id)},{merge:true});
+          await batch.commit();
+        }
+        setBoard(boardData);
+        // Clean URL
+        window.history.replaceState({},"",window.location.pathname);
+        showToast("✓ Joined "+boardData.name+"!");
+      }catch(e){showToast("Could not join board. Try again.");}
+    })();
+  },[urlInviteCode,authUser,board]);
 
   // Board data listeners
   useEffect(()=>{
@@ -1268,6 +1342,10 @@ function App(){
           </div>
         )}
         <div style={{display:"flex",gap:6,marginLeft:members.length<=1?"auto":"0"}}>
+          <button onClick={()=>setShowBoardSettings(true)}
+            style={{background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontFamily:"inherit",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+            <span>+</span> Invite
+          </button>
           <button onClick={()=>setShowActivity(true)} title="Activity log"
             style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>📋</button>
           <button onClick={()=>setShowBoardSettings(true)} title="Board settings"
