@@ -1145,14 +1145,20 @@ function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups})
 // ── Main App ──
 function App(){
   const[authUser,setAuthUser]=useState(undefined); // undefined=loading
-  const[board,setBoard]=useState(()=>{
-    try{const saved=localStorage.getItem("docket_board");return saved?JSON.parse(saved):null;}
-    catch(e){return null;}
-  });
+  const[board,setBoard]=useState(null);
   const boardIdRef=useRef(null);
+
+  // Load board from localStorage after auth
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem("docket_board");
+      if(saved){const b=JSON.parse(saved);setBoard(b);boardIdRef.current=b.id;}
+    }catch(e){}
+  },[]);
+
   const selectBoard=useCallback((b)=>{
-    setBoard(b);
     boardIdRef.current=b?.id||null;
+    setBoard(b);
     if(b)localStorage.setItem("docket_board",JSON.stringify(b));
     else localStorage.removeItem("docket_board");
   },[]);
@@ -1207,48 +1213,28 @@ function App(){
     })();
   },[urlInviteCode,authUser,board]);
 
-  // Board data listeners - only re-run when board ID actually changes
-  const [boardId, setBoardId] = useState(board?.id||null);
+  // Board data listeners
   useEffect(()=>{
-    if(board?.id&&board.id!==boardId){setBoardId(board.id);}
-  },[board?.id]);
+    const bid=board?.id;
+    if(!bid)return;
+    boardIdRef.current=bid;
 
-  useEffect(()=>{
-    if(!boardId)return;
-    boardIdRef.current=boardId;
+    const unsubBoard=db.collection("boards").doc(bid).onSnapshot(snap=>{
+      if(!snap.exists)return;
+      const data=snap.data();
+      setBoard(b=>b?{...b,groups:data.groups||b.groups,name:data.name||b.name,inviteCode:data.inviteCode||b.inviteCode}:b);
+    },err=>console.error("Board:",err));
 
-    // Listen to board document for group/name/inviteCode changes only
-    const unsubBoard=db.collection("boards").doc(boardId).onSnapshot(
-      snap=>{
-        if(snap.exists){
-          const data=snap.data();
-          setBoard(b=>{
-            if(!b)return null;
-            const updated={...b,
-              groups:data.groups!==undefined?data.groups:b.groups,
-              name:data.name||b.name,
-              inviteCode:data.inviteCode||b.inviteCode
-            };
-            localStorage.setItem("docket_board",JSON.stringify(updated));
-            return updated;
-          });
-        }
-      },
-      err=>{console.error("Board error:",err);}
-    );
+    const unsubTasks=db.collection("boards").doc(bid).collection("tasks").onSnapshot(snap=>{
+      setTasks(snap.docs.map(d=>({order:0,...d.data(),id:d.id})));
+    },err=>console.error("Tasks:",err));
 
-    const unsubTasks=db.collection("boards").doc(boardId).collection("tasks").onSnapshot(
-      snap=>{setTasks(snap.docs.map(d=>({order:0,...d.data(),id:d.id})));},
-      err=>{console.error("Items error:",err);}
-    );
-
-    const unsubMembers=db.collection("boards").doc(boardId).collection("members").onSnapshot(
-      snap=>{setMembers(snap.docs.map(d=>d.data()));},
-      err=>{console.error("Members error:",err);}
-    );
+    const unsubMembers=db.collection("boards").doc(bid).collection("members").onSnapshot(snap=>{
+      setMembers(snap.docs.map(d=>d.data()));
+    },err=>console.error("Members:",err));
 
     return()=>{unsubBoard();unsubTasks();unsubMembers();};
-  },[boardId]);
+  },[board?.id]);
 
   const[showProfile,setShowProfile]=useState(false);
   const[showBoardSettings,setShowBoardSettings]=useState(false);
