@@ -1142,7 +1142,18 @@ function App(){
 
   // Board data listeners
   useEffect(()=>{
-    if(!board)return;
+    if(!board?.id)return;
+    // Listen to board document for group/name changes
+    const unsubBoard=db.collection("boards").doc(board.id).onSnapshot(
+      snap=>{
+        if(snap.exists){
+          const data=snap.data();
+          setBoard(b=>b?{...b,...data,id:snap.id}:null);
+          localStorage.setItem("docket_board",JSON.stringify({...board,...data,id:snap.id}));
+        }
+      },
+      err=>{console.error("Board error:",err);}
+    );
     const unsubTasks=tasksRef(board.id).onSnapshot(
       snap=>{setTasks(snap.docs.map(d=>({group:"home",assignee:authUser?.uid||"",order:0,...d.data(),id:d.id})));},
       err=>{console.error("Items error:",err);}
@@ -1151,7 +1162,7 @@ function App(){
       snap=>{setMembers(snap.docs.map(d=>d.data()));},
       err=>{console.error("Members error:",err);}
     );
-    return()=>{unsubTasks();unsubMembers();};
+    return()=>{unsubBoard();unsubTasks();unsubMembers();};
   },[board?.id]);
 
   const[showProfile,setShowProfile]=useState(false);
