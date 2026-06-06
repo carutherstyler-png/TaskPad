@@ -451,7 +451,7 @@ function ProfileModal({user,members,boardId,onClose}){
 }
 
 // ── Board Settings Modal ──
-function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave,onSaveBoardName}){
+function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave,onSaveBoardName,onExportCSV}){
   const[boardName,setBoardName]=useState(board.name);
   const[saving,setSaving]=useState(false);
   
@@ -558,6 +558,13 @@ function BoardSettingsModal({board,members,user,onClose,onBoardUpdate,onLeave,on
           })}
         </div>
 
+        <div className="settings-section">
+          <div className="settings-title">Export</div>
+          <button className="settings-btn secondary" style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
+            onClick={onExportCSV}>
+            ↓ Export tasks as CSV
+          </button>
+        </div>
         <div className="settings-section">
           <button className="settings-btn danger" style={{width:"100%"}} onClick={onLeave}>Leave board</button>
         </div>
@@ -1532,7 +1539,7 @@ function App(){
         <button className={`nav-tab${filter==="overdue"?" active":""}`} onClick={()=>setFilter("overdue")}>
           Overdue {overdueCount>0&&<span style={{background:"#e2445c",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:700,marginLeft:4}}>{overdueCount}</span>}
         </button>
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,padding:"6px 0"}}>
+        <div className="desktop-only" style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,padding:"6px 0"}}>
           <div style={{display:"flex",alignItems:"center",gap:7,background:"#f5f6f8",border:"1.5px solid #e6e9ef",borderRadius:6,padding:"5px 10px"}}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#c5c7d4" strokeWidth="1.5"/><path d="M10 10l2.5 2.5" stroke="#c5c7d4" strokeWidth="1.5" strokeLinecap="round"/></svg>
             <input id="search-input" placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}
@@ -1548,6 +1555,16 @@ function App(){
           </div>
         </div>
       </div>
+
+      {/* Mobile search bar - shown when search nav is active */}
+      {activeNav==="search"&&<div className="mobile-only" style={{background:"#fff",borderBottom:"1px solid #e6e9ef",padding:"10px 16px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f6f8",border:"1.5px solid #e6e9ef",borderRadius:10,padding:"8px 14px"}}>
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#c5c7d4" strokeWidth="1.5"/><path d="M10 10l2.5 2.5" stroke="#c5c7d4" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          <input id="search-input" placeholder="Search tasks…" value={search} onChange={e=>setSearch(e.target.value)} autoFocus
+            style={{border:"none",outline:"none",fontFamily:"inherit",fontSize:16,color:"#323338",background:"transparent",flex:1}}/>
+          {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",color:"#c5c7d4",fontSize:18,cursor:"pointer",padding:0,lineHeight:1}}>×</button>}
+        </div>
+      </div>}
 
       {/* Groups */}
       <div className="groups-wrap" style={{padding:"0 0 28px"}}>
@@ -1645,6 +1662,7 @@ function App(){
       {showProfile&&<ProfileModal user={authUser} members={members} boardId={board?.id} onClose={()=>{setShowProfile(false);setActiveNav("home");}}/>}
       {showBoardSettings&&<BoardSettingsModal board={board} members={members} user={authUser} onClose={()=>{setShowBoardSettings(false);setActiveNav("home");}}
         onSaveBoardName={saveBoardNameApp}
+        onExportCSV={()=>exportCSV(tasks,members)}
         onBoardUpdate={b=>selectBoard(b)}
         onLeave={async()=>{
           if(!confirm("Leave this board?"))return;
