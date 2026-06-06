@@ -1030,6 +1030,11 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
             :<span onClick={()=>setEditing(true)} style={{flex:1,fontSize:15,fontWeight:600,cursor:"text",textDecoration:task.status==="Done"?"line-through":"none",color:task.status==="Done"?"#c5c7d4":"#323338"}}>{task.name||"Untitled"}</span>
           }
           {rel&&<span style={{fontSize:12,fontWeight:600,color:rel.color,flexShrink:0}}>{rel.label}</span>}
+          <button onClick={e=>{e.stopPropagation();setExpanded(true);upd("alarmTime",task.alarmTime||task.dueDate||new Date().toISOString().slice(0,16));}}
+            title="Set alarm"
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:15,opacity:task.alarmTime?1:0.25,padding:"0 2px",flexShrink:0,lineHeight:1,-webkit-tap-highlight-color:"transparent"}}>
+            🔔
+          </button>
         </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:expanded?8:0}}>
         <StatusPill value={task.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>upd("status",v))} large/>
