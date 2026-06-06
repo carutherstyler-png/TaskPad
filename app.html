@@ -1162,7 +1162,7 @@ function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups})
           <span style={{fontWeight:700,fontSize:15,color:"#323338"}}>Add to {group?.label||"group"}</span>
           <button onClick={onCancel} style={{marginLeft:"auto",background:"none",border:"none",color:"#c5c7d4",fontSize:22,cursor:"pointer",lineHeight:1,padding:0}}>×</button>
         </div>
-        <input ref={inputRef} className="bar-input" placeholder="Item name…" value={name}
+        <input ref={inputRef} className="bar-input" placeholder="Task name…" value={name}
           onChange={e=>setName(e.target.value)}
           onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();save();}if(e.key==="Escape")onCancel();}}
           style={{marginBottom:12,width:"100%"}}/>
@@ -1171,7 +1171,7 @@ function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups})
           <StatusPill value={newTask.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("status",v))} large/>
           <StatusPill value={newTask.priority} options={PRIORITY_OPTIONS} onOpen={md=>openMenu(md,v=>onUpdateNew("priority",v))} large/>
         </div>
-        <button className="bar-add" onClick={save} onTouchEnd={e=>{e.preventDefault();save();}} style={{width:"100%",borderRadius:10,padding:13,fontSize:16}}>Add Item</button>
+        <button className="bar-add" onClick={save} onTouchEnd={e=>{e.preventDefault();save();}} style={{width:"100%",borderRadius:10,padding:13,fontSize:16}}>Add Task</button>
       </div>
     </div>
   );
