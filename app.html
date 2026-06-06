@@ -44,7 +44,10 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 .user-btn{border:none;border-radius:20px;padding:6px 12px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px;-webkit-tap-highlight-color:transparent;}
 .add-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;cursor:pointer;color:#676879;font-size:13px;font-weight:500;background:none;border:none;font-family:inherit;transition:color 0.15s;}
 .add-btn:hover{color:#0073ea;}
-.mobile-card{background:#fff;border-radius:10px;border:1px solid #e6e9ef;padding:12px 14px;margin-bottom:8px;animation:rowIn 0.18s ease both;position:relative;overflow:hidden;transition:transform 0.2s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+.mobile-card-wrap{position:relative;margin-bottom:8px;overflow:hidden;border-radius:10px;}
+.mobile-card-delete-bg{position:absolute;right:0;top:0;bottom:0;background:#e2445c;display:flex;align-items:center;justify-content:flex-end;padding-right:20px;border-radius:10px;min-width:80px;}
+.mobile-card-delete-bg svg{opacity:0.9;}
+.mobile-card{background:#fff;border-radius:10px;border:1px solid #e6e9ef;padding:12px 14px;animation:rowIn 0.18s ease both;position:relative;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transform:translateX(0);transition:transform 0.15s ease;will-change:transform;}
 .mobile-card input,.mobile-card textarea,.mobile-card select{-webkit-user-select:text;user-select:text;}
 .mobile-card.overdue{border-left:3px solid #e2445c;}
 .mobile-card.done{opacity:0.55;}
@@ -898,10 +901,14 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
   const[nameVal,setNameVal]=useState(task.name);
   const[expanded,setExpanded]=useState(false);
   const[holding,setHolding]=useState(false);
+  const[swipeX,setSwipeX]=useState(0);
+  const[swiping,setSwiping]=useState(false);
   const inputRef=useRef();
   const cardRef=useRef();
+  const wrapRef=useRef();
   const holdTimer=useRef();
   const holdingRef=useRef(false);
+  const swipeStart=useRef(null);
   const taskUser=resolveUser(task.assignee,members);
   const overdue=isOverdue(task);
   const rel=formatRelDate(task.dueDate);
@@ -911,13 +918,17 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
 
   useEffect(()=>{
     const card=cardRef.current;if(!card)return;
-    let startY=0;
+    let startY=0;let startX=0;let isSwipe=false;let isDrag=false;
+
     const handleTouchStart=e=>{
       if(editing)return;
+      startX=e.touches[0].clientX;
       startY=e.touches[0].clientY;
-      const preventSelect=e=>e.preventDefault();
+      isSwipe=false;isDrag=false;
+      const preventSelect=ev=>ev.preventDefault();
       document.addEventListener("selectstart",preventSelect);
       holdTimer.current=setTimeout(()=>{
+        if(isSwipe)return;
         holdingRef.current=true;setHolding(true);
         if(navigator.vibrate)navigator.vibrate(50);
         onDragStart(task.id);
@@ -925,8 +936,30 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
       },400);
       card.addEventListener("touchend",()=>document.removeEventListener("selectstart",preventSelect),{once:true});
     };
+
     const handleTouchMove=e=>{
-      if(!holdingRef.current){const dy=Math.abs(e.touches[0].clientY-startY);if(dy>8)clearTimeout(holdTimer.current);return;}
+      const dx=e.touches[0].clientX-startX;
+      const dy=e.touches[0].clientY-startY;
+
+      // Detect swipe left
+      if(!isDrag&&!holdingRef.current&&Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>8){
+        isSwipe=true;
+        clearTimeout(holdTimer.current);
+        e.preventDefault();
+        const clamped=Math.min(0,Math.max(-120,dx));
+        setSwipeX(clamped);
+        setSwiping(true);
+        return;
+      }
+
+      if(!holdingRef.current){
+        const ddy=Math.abs(dy);
+        if(ddy>8)clearTimeout(holdTimer.current);
+        return;
+      }
+
+      // Drag reorder
+      isDrag=true;
       e.preventDefault();e.stopPropagation();
       const touch=e.touches[0];
       card.style.visibility="hidden";
@@ -935,31 +968,51 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
       const target=el?.closest("[data-task-id]");
       if(target&&target.dataset.taskId!==task.id)onDragEnter(target.dataset.taskId,target.dataset.groupId);
     };
+
     const handleTouchEnd=e=>{
       clearTimeout(holdTimer.current);
       if(holdingRef.current){holdingRef.current=false;setHolding(false);onDragEnd();}
+      if(isSwipe){
+        if(swipeX<-80){
+          // Delete threshold reached
+          if(navigator.vibrate)navigator.vibrate(40);
+          onDelete(task.id);
+        } else {
+          setSwipeX(0);setSwiping(false);
+        }
+        isSwipe=false;
+      }
     };
+
     card.addEventListener("touchstart",handleTouchStart,{passive:true});
     card.addEventListener("touchmove",handleTouchMove,{passive:false});
     card.addEventListener("touchend",handleTouchEnd,{passive:true});
     return()=>{card.removeEventListener("touchstart",handleTouchStart);card.removeEventListener("touchmove",handleTouchMove);card.removeEventListener("touchend",handleTouchEnd);};
-  },[task.id,editing,onDragStart,onDragEnter,onDragEnd]);
+  },[task.id,editing,swipeX,onDragStart,onDragEnter,onDragEnd,onDelete]);
+
+  const deleteReveal=Math.min(1,Math.abs(swipeX)/80);
 
   return(
-    <div ref={cardRef} data-task-id={task.id} data-group-id={groupColor}
-      className={`mobile-card${overdue?" overdue":""}${task.status==="Done"?" done":""}`}
-      style={{borderLeft:`3px solid ${groupColor}`,opacity:isDragging?0.35:1,boxShadow:holding?"0 8px 24px rgba(0,0,0,0.15)":"",border:"1px solid #e6e9ef",transition:"opacity 0.15s,box-shadow 0.15s",cursor:holding?"grabbing":"default",position:"relative",zIndex:holding?999:1,marginBottom:8}}>
-      {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px",zIndex:10}}>↕ Reordering</div>}
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-        {showWho&&<AssigneePill value={taskUser.id} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)upd("assignee",m.uid);})}/>}
-        {editing
-          ?<input ref={inputRef} value={nameVal} onChange={e=>setNameVal(e.target.value)} onBlur={saveName} onKeyDown={e=>{if(e.key==="Enter")saveName();}}
-              style={{flex:1,border:"none",outline:"none",fontFamily:"inherit",fontSize:15,fontWeight:600,background:"transparent",padding:0}}/>
-          :<span onClick={()=>setEditing(true)} style={{flex:1,fontSize:15,fontWeight:600,cursor:"text",textDecoration:task.status==="Done"?"line-through":"none",color:task.status==="Done"?"#c5c7d4":"#323338"}}>{task.name||"Untitled"}</span>
-        }
-        {rel&&<span style={{fontSize:12,fontWeight:600,color:rel.color,flexShrink:0}}>{rel.label}</span>}
-        <DelBtn onDelete={()=>onDelete(task.id)}/>
+    <div ref={wrapRef} className="mobile-card-wrap" style={{opacity:isDragging?0.35:1,zIndex:holding?999:1}}>
+      {/* Delete background */}
+      <div className="mobile-card-delete-bg" style={{opacity:deleteReveal}}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </div>
+      <div ref={cardRef} data-task-id={task.id} data-group-id={groupColor}
+        className={`mobile-card${overdue?" overdue":""}${task.status==="Done"?" done":""}`}
+        style={{borderLeft:`3px solid ${groupColor}`,boxShadow:holding?"0 8px 24px rgba(0,0,0,0.15)":"",transform:`translateX(${swipeX}px)`,transition:swiping?"none":"transform 0.2s ease",cursor:holding?"grabbing":"default"}}>
+        {holding&&<div style={{position:"absolute",top:6,right:8,fontSize:11,color:"#0073ea",fontWeight:600,background:"#eaf2ff",borderRadius:10,padding:"2px 8px",zIndex:10}}>↕ Reordering</div>}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+          {showWho&&<AssigneePill value={taskUser.id} members={members} onOpen={md=>openMenu(md,v=>{const m=members.find(m=>resolveUser(m.uid,members).label===v);if(m)upd("assignee",m.uid);})}/>}
+          {editing
+            ?<input ref={inputRef} value={nameVal} onChange={e=>setNameVal(e.target.value)} onBlur={saveName} onKeyDown={e=>{if(e.key==="Enter")saveName();}}
+                style={{flex:1,border:"none",outline:"none",fontFamily:"inherit",fontSize:15,fontWeight:600,background:"transparent",padding:0}}/>
+            :<span onClick={()=>setEditing(true)} style={{flex:1,fontSize:15,fontWeight:600,cursor:"text",textDecoration:task.status==="Done"?"line-through":"none",color:task.status==="Done"?"#c5c7d4":"#323338"}}>{task.name||"Untitled"}</span>
+          }
+          {rel&&<span style={{fontSize:12,fontWeight:600,color:rel.color,flexShrink:0}}>{rel.label}</span>}
+        </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:expanded?8:0}}>
         <StatusPill value={task.status} options={STATUS_OPTIONS} onOpen={md=>openMenu(md,v=>upd("status",v))} large/>
         <StatusPill value={task.priority} options={PRIORITY_OPTIONS} onOpen={md=>openMenu(md,v=>upd("priority",v))} large/>
@@ -999,6 +1052,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
           style={{width:"100%",border:"1px solid #e6e9ef",borderRadius:6,padding:"8px 10px",fontFamily:"inherit",fontSize:13,color:"#323338",outline:"none",resize:"none",minHeight:56,background:"#fafafa",lineHeight:1.5}}
           onFocus={e=>e.target.style.borderColor="#0073ea"} onBlur={e=>e.target.style.borderColor="#e6e9ef"}/>
       </>}
+    </div>
     </div>
   );
 });
