@@ -4,6 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,interactive-widget=resizes-content"/>
 <title>Docket</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <meta name="theme-color" content="#0073ea"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -823,6 +826,7 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
   const[editing,setEditing]=useState(false);
   const[nameVal,setNameVal]=useState(task.name);
   const[flashing,setFlashing]=useState(false);
+  const[showPicker,setShowPicker]=useState(false);
   const inputRef=useRef();
   const taskUser=resolveUser(task.assignee,members);
   const overdue=isOverdue(task);
@@ -853,36 +857,29 @@ const TaskRow=memo(function TaskRow({task,onUpdate,onDelete,openMenu,isDragging,
       <td style={{...td,padding:0}}><InlineSelect value={task.status} options={STATUS_OPTIONS} onChange={v=>upd("status",v)}/></td>
       <td style={{...td,padding:0}}><InlineSelect value={task.priority} options={PRIORITY_OPTIONS} onChange={v=>upd("priority",v)}/></td>
       <td style={{...td,position:"relative",overflow:"visible"}}>
-        {(()=>{
-          const[showPicker,setShowPicker]=React.useState(false);
-          const hasTime=task.dueDate&&task.dueDate.includes("T");
-          const dtVal=task.dueDate?(hasTime?task.dueDate:task.dueDate+"T00:00"):"";
-          return(<>
-            <span onClick={()=>setShowPicker(p=>!p)}
-              style={{fontSize:12,fontWeight:600,color:rel?rel.color:"#c5c7d4",cursor:"pointer",whiteSpace:"nowrap",display:"block"}}>
-              {rel?rel.label:"No date"}
-            </span>
-            {showPicker&&(
-              <div style={{position:"absolute",zIndex:9999,background:"#fff",border:"1px solid #e6e9ef",borderRadius:10,padding:12,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",top:"100%",left:0,marginTop:4,minWidth:220}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#676879",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Date & Time</div>
-                <input type="datetime-local" value={dtVal}
-                  onChange={e=>{upd("dueDate",e.target.value||"");}}
-                  style={{border:"1.5px solid #e6e9ef",borderRadius:6,padding:"6px 8px",fontFamily:"inherit",fontSize:13,outline:"none",width:"100%"}}
-                  onFocus={e=>e.target.style.borderColor="#0073ea"}
-                  onBlur={e=>{e.target.style.borderColor="#e6e9ef";setTimeout(()=>setShowPicker(false),200);}}
-                  autoFocus/>
-                <div style={{display:"flex",gap:6,marginTop:8}}>
-                  <button onClick={()=>{const d=new Date();upd("dueDate",d.toISOString().slice(0,16));setShowPicker(false);}}
-                    style={{flex:1,background:"#f5f6f8",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",color:"#323338"}}>Now</button>
-                  <button onClick={()=>{upd("dueDate","");setShowPicker(false);}}
-                    style={{flex:1,background:"#fce8ec",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",color:"#e2445c"}}>Clear</button>
-                  <button onClick={()=>setShowPicker(false)}
-                    style={{flex:1,background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",fontWeight:600}}>Done</button>
-                </div>
-              </div>
-            )}
-          </>);
-        })()}
+        <span onClick={()=>setShowPicker(p=>!p)}
+          style={{fontSize:12,fontWeight:600,color:rel?rel.color:"#c5c7d4",cursor:"pointer",whiteSpace:"nowrap",display:"block"}}>
+          {rel?rel.label:"No date"}
+        </span>
+        {showPicker&&(
+          <div style={{position:"absolute",zIndex:9999,background:"#fff",border:"1px solid #e6e9ef",borderRadius:10,padding:12,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",top:"100%",left:0,marginTop:4,minWidth:220}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#676879",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Date & Time</div>
+            <input type="datetime-local" value={task.dueDate?(task.dueDate.includes("T")?task.dueDate:task.dueDate+"T00:00"):""}
+              onChange={e=>{upd("dueDate",e.target.value||"");}}
+              style={{border:"1.5px solid #e6e9ef",borderRadius:6,padding:"6px 8px",fontFamily:"inherit",fontSize:13,outline:"none",width:"100%"}}
+              onFocus={e=>e.target.style.borderColor="#0073ea"}
+              onBlur={e=>{e.target.style.borderColor="#e6e9ef";setTimeout(()=>setShowPicker(false),200);}}
+              autoFocus/>
+            <div style={{display:"flex",gap:6,marginTop:8}}>
+              <button onClick={()=>{const d=new Date();upd("dueDate",d.toISOString().slice(0,16));setShowPicker(false);}}
+                style={{flex:1,background:"#f5f6f8",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",color:"#323338"}}>Now</button>
+              <button onClick={()=>{upd("dueDate","");setShowPicker(false);}}
+                style={{flex:1,background:"#fce8ec",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",color:"#e2445c"}}>Clear</button>
+              <button onClick={()=>setShowPicker(false)}
+                style={{flex:1,background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"5px 0",fontFamily:"inherit",fontSize:12,cursor:"pointer",fontWeight:600}}>Done</button>
+            </div>
+          </div>
+        )}
       </td>
       <td style={{...td}}><PopoverPill num={task.durNum} unit={task.durUnit} defaultUnit="mins" units={DUR_UNITS} color="#9b59b6" bg="#f3eaff" border="1.5px solid #9b59b633" icon="⏱" placeholder="Duration" onSave={(n,u)=>upd({durNum:n,durUnit:u})}/></td>
       <td style={{...td}}><PopoverPill num={task.recNum} unit={task.recUnit} defaultUnit="Days" units={REC_UNITS} color="#0073ea" bg="#eaf2ff" border="1.5px solid #0073ea33" icon="↻" placeholder="Recurrence" onSave={(n,u)=>upd({recNum:n,recUnit:u})}/></td>
