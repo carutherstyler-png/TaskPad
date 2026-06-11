@@ -405,6 +405,60 @@ function ProfileModal({user,members,boardId,onClose}){
   const[color,setColor]=useState(me?.color||MEMBER_COLORS[0]);
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
+  const[deleteStep,setDeleteStep]=useState(null);
+  const[deletePassword,setDeletePassword]=useState("");
+  const[deleteError,setDeleteError]=useState("");
+  const isGoogleUser=user.providerData?.[0]?.providerId==="google.com";
+
+  const performDeletion=async()=>{
+    const snap=await db.collection("userBoards").doc(user.uid).get();
+    const boardIds=snap.data()?.boardIds||[];
+    const batch=db.batch();
+    boardIds.forEach(bid=>{
+      batch.delete(db.collection("boards").doc(bid).collection("members").doc(user.uid));
+    });
+    batch.delete(db.collection("userBoards").doc(user.uid));
+    await batch.commit();
+    await user.delete();
+  };
+
+  const handleDeleteAccount=async()=>{
+    setDeleteStep("deleting");setDeleteError("");
+    try{await performDeletion();}
+    catch(e){
+      if(e.code==="auth/requires-recent-login"){
+        setDeleteStep(isGoogleUser?"reauth-google":"reauth-password");
+        setDeleteError("Session expired. Please re-enter your credentials.");
+      }else{
+        setDeleteError(e.message.replace("Firebase: ","").replace(/\(auth\/.*\)/,"").trim());
+        setDeleteStep("confirm");
+      }
+    }
+  };
+
+  const deleteWithPassword=async()=>{
+    if(!deletePassword.trim())return;
+    setDeleteStep("deleting");setDeleteError("");
+    try{
+      const cred=firebase.auth.EmailAuthProvider.credential(user.email,deletePassword);
+      await user.reauthenticateWithCredential(cred);
+      await performDeletion();
+    }catch(e){
+      setDeleteError(e.message.replace("Firebase: ","").replace(/\(auth\/.*\)/,"").trim());
+      setDeleteStep("reauth-password");
+    }
+  };
+
+  const deleteWithGoogle=async()=>{
+    setDeleteError("");
+    try{
+      await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+      await performDeletion();
+    }catch(e){
+      setDeleteError(e.message.replace("Firebase: ","").replace(/\(auth\/.*\)/,"").trim());
+      setDeleteStep("reauth-google");
+    }
+  };
 
   const save=async()=>{
     setSaving(true);
@@ -444,6 +498,44 @@ function ProfileModal({user,members,boardId,onClose}){
                 style={{background:c}} onClick={()=>setColor(c)}/>
             ))}
           </div>
+        </div>
+        <div className="settings-section" style={{borderTop:"2px solid #fce8ec"}}>
+          <div className="settings-title" style={{color:"#e2445c"}}>Danger Zone</div>
+          {deleteStep==="confirm"?(
+            <div>
+              <div style={{fontSize:13,color:"#676879",marginBottom:12}}>This will permanently delete your account and all your data. This cannot be undone.</div>
+              {deleteError&&<div className="auth-error" style={{marginBottom:10}}>{deleteError}</div>}
+              <div style={{display:"flex",gap:8}}>
+                <button className="settings-btn danger" onClick={handleDeleteAccount}>Yes, delete my account</button>
+                <button className="settings-btn secondary" onClick={()=>{setDeleteStep(null);setDeleteError("");}}>Cancel</button>
+              </div>
+            </div>
+          ):deleteStep==="reauth-password"?(
+            <div>
+              <div style={{fontSize:13,color:"#676879",marginBottom:10}}>Enter your password to confirm deletion:</div>
+              {deleteError&&<div className="auth-error" style={{marginBottom:8}}>{deleteError}</div>}
+              <input className="settings-input" type="password" placeholder="Your password" value={deletePassword}
+                onChange={e=>setDeletePassword(e.target.value)} style={{marginBottom:10}}
+                onKeyDown={e=>e.key==="Enter"&&deleteWithPassword()}/>
+              <div style={{display:"flex",gap:8}}>
+                <button className="settings-btn danger" onClick={deleteWithPassword}>Confirm deletion</button>
+                <button className="settings-btn secondary" onClick={()=>{setDeleteStep(null);setDeleteError("");setDeletePassword("");}}>Cancel</button>
+              </div>
+            </div>
+          ):deleteStep==="reauth-google"?(
+            <div>
+              <div style={{fontSize:13,color:"#676879",marginBottom:10}}>Please re-authenticate to confirm.</div>
+              {deleteError&&<div className="auth-error" style={{marginBottom:8}}>{deleteError}</div>}
+              <div style={{display:"flex",gap:8}}>
+                <button className="settings-btn danger" onClick={deleteWithGoogle}>Re-authenticate with Google</button>
+                <button className="settings-btn secondary" onClick={()=>{setDeleteStep(null);setDeleteError("");}}>Cancel</button>
+              </div>
+            </div>
+          ):deleteStep==="deleting"?(
+            <div style={{fontSize:13,color:"#676879",padding:"4px 0"}}>Deleting account…</div>
+          ):(
+            <button className="settings-btn danger" style={{width:"100%"}} onClick={()=>setDeleteStep("confirm")}>Delete my account</button>
+          )}
         </div>
         <div style={{padding:"16px 24px",display:"flex",gap:10,justifyContent:"flex-end"}}>
           <button className="settings-btn secondary" onClick={onClose}>Cancel</button>
@@ -1078,7 +1170,7 @@ const MobileCard=memo(function MobileCard({task,onUpdate,onDelete,openMenu,showW
 });
 
 // ── Group Section ──
-function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,showWho,filter,members,onDeleteGroup,onRenameGroup,newTask,onCommitNewTask,onCancelNewTask,onUpdateNewTask}){
+function GroupSection({group,tasks,openMenu,onUpdate,onDelete,onSwipeDelete,dragState,onDragStart,onDragEnter,onDragEnd,onDropEmpty,onAddTask,sort,onSort,cols,onResize,showWho,filter,members,onDeleteGroup,onRenameGroup,newTask,onCommitNewTask,onCancelNewTask,onUpdateNewTask}){
   const[collapsed,setCollapsed]=useState(false);
   const[editingName,setEditingName]=useState(false);
   const[groupNameVal,setGroupNameVal]=useState(group.label);
@@ -1220,7 +1312,7 @@ function GroupSection({group,tasks,openMenu,onUpdate,onDelete,dragState,onDragSt
                   <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:10,height:10,borderRadius:"50%",background:"#0073ea",border:"2px solid #fff"}}/>
                 </div>):null;})()}
               <MobileCard task={task} showWho={showWho} groupColor={group.color} members={members}
-                onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onDelete} openMenu={openMenu}
+                onUpdate={fields=>onUpdate(task.id,fields)} onDelete={onSwipeDelete||onDelete} openMenu={openMenu}
                 isDragging={dragState.draggingId===task.id} isDropTarget={false}
                 onDragStart={onDragStart} onDragEnter={(id,grp)=>onDragEnter(id,group.id)} onDragEnd={onDragEnd}/>
             </React.Fragment>
@@ -1303,6 +1395,9 @@ function App(){
   const[sort,setSort]=useState({field:null,dir:"asc"});
   const[cols,setCols]=useState({who:38,name:160,status:120,priority:108,due:100,duration:110,recurrence:130,notes:180});
   const[filter,setFilter]=useState("all");
+  const[isOnline,setIsOnline]=useState(navigator.onLine);
+  const[pendingDelete,setPendingDelete]=useState(null);
+  const pendingDeleteRef=useRef(null);
 
   // Check for invite code in URL
   const urlInviteCode=useMemo(()=>{
@@ -1314,6 +1409,15 @@ function App(){
   useEffect(()=>{
     const unsub=auth.onAuthStateChanged(u=>{setAuthUser(u||null);if(u)setActiveUserId(u.uid);});
     return unsub;
+  },[]);
+
+  // Online/offline detection
+  useEffect(()=>{
+    const on=()=>setIsOnline(true);
+    const off=()=>setIsOnline(false);
+    window.addEventListener("online",on);
+    window.addEventListener("offline",off);
+    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
   },[]);
 
   // Auto-join board if invite code in URL
@@ -1412,7 +1516,38 @@ function App(){
 
   const openMenu=useCallback((md,onSelect)=>setMenu({...md,onSelect}),[]);
   const closeMenu=useCallback(()=>setMenu(null),[]);
-  const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);},[]);
+  const showToast=useCallback(msg=>{setToast(msg);if(typeof msg==="string")setTimeout(()=>setToast(null),2500);},[]);
+
+  const swipeDeleteTask=useCallback(id=>{
+    if(pendingDeleteRef.current){
+      clearTimeout(pendingDeleteRef.current.timer);
+      const prev=pendingDeleteRef.current;
+      const bid=boardIdRef.current||board?.id;
+      if(bid){
+        if(prev.task)logActivity(bid,authUser.uid,authUser.displayName||authUser.email,"deleted",prev.task.name);
+        deleteTaskDb(bid,prev.id);
+      }
+      pendingDeleteRef.current=null;
+    }
+    const task=tasks.find(t=>t.id===id);
+    if(!task)return;
+    const timer=setTimeout(async()=>{
+      const bid=boardIdRef.current||board?.id;
+      if(bid){
+        logActivity(bid,authUser.uid,authUser.displayName||authUser.email,"deleted",task.name);
+        setSyncing(true);
+        await deleteTaskDb(bid,id).finally(()=>setSyncing(false));
+      }
+      setPendingDelete(null);pendingDeleteRef.current=null;
+      setToast(null);
+    },5000);
+    const pd={id,task,timer};
+    pendingDeleteRef.current=pd;setPendingDelete(pd);
+    const label=task.name.length>28?task.name.slice(0,28)+"…":task.name;
+    setToast({msg:`"${label}" deleted`,action:"Undo",onAction:()=>{
+      clearTimeout(timer);setPendingDelete(null);pendingDeleteRef.current=null;setToast(null);
+    }});
+  },[tasks,board,authUser]);
 
   const updateTask=useCallback(async(id,fields)=>{
     const task=tasks.find(t=>t.id===id);if(!task)return;
@@ -1570,6 +1705,10 @@ function App(){
     });
   },[sorted,activeUserId,search,filter,members]);
 
+  const displayTasks=useMemo(()=>
+    pendingDelete?filtered.filter(t=>t.id!==pendingDelete.id):filtered
+  ,[filtered,pendingDelete]);
+
   const doneCount=useMemo(()=>tasks.filter(t=>t.status==="Done").length,[tasks]);
   const todayCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<=today;}).length;},[tasks]);
   const overdueCount=useMemo(()=>{const today=new Date();today.setHours(0,0,0,0);return tasks.filter(t=>{if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<today;}).length;},[tasks]);
@@ -1633,6 +1772,14 @@ function App(){
         </div>
       </div>
 
+      {/* Offline banner */}
+      {!isOnline&&(
+        <div style={{background:"#323338",color:"#fff",textAlign:"center",padding:"8px 16px",fontSize:13,fontWeight:500,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          You're offline — changes will sync when reconnected
+        </div>
+      )}
+
       {/* Nav tabs */}
       <div style={{background:"#fff",borderBottom:"1px solid #e6e9ef",display:"flex",alignItems:"center",padding:"0 16px",gap:0,overflowX:"auto"}}>
         <button className={`nav-tab${filter==="all"?" active":""}`} onClick={()=>setFilter("all")}>All</button>
@@ -1678,9 +1825,22 @@ function App(){
             <span style={{fontSize:13,color:"#c5c7d4"}}>{filter==="today"?"No tasks due today.":"No overdue tasks."}</span>
           </div>
         )}
+        {filter==="all"&&groups.length===0&&(
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"72px 24px",gap:16}}>
+            <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/></svg>
+            </div>
+            <div style={{fontSize:18,fontWeight:700,color:"#323338"}}>Welcome to Docket!</div>
+            <div style={{fontSize:14,color:"#676879",textAlign:"center",maxWidth:280,lineHeight:1.5}}>Create your first group to start organizing your tasks.</div>
+            <button onClick={()=>setAddingGroup(true)}
+              style={{background:"#0073ea",color:"#fff",border:"none",borderRadius:10,padding:"12px 24px",fontFamily:"inherit",fontSize:15,fontWeight:700,cursor:"pointer",marginTop:8}}>
+              Create your first group →
+            </button>
+          </div>
+        )}
         {groups.map(g=>(
-          <GroupSection key={g.id} group={g} tasks={filtered} openMenu={openMenu}
-            onUpdate={updateTask} onDelete={deleteTask} dragState={drag}
+          <GroupSection key={g.id} group={g} tasks={displayTasks} openMenu={openMenu}
+            onUpdate={updateTask} onDelete={deleteTask} onSwipeDelete={swipeDeleteTask} dragState={drag}
             onDragStart={onDragStart} onDragEnter={onDragEnter} onDragEnd={onDragEnd}
             onDropEmpty={onDropEmpty} onAddTask={addTask} sort={sort} onSort={onSort}
             cols={cols} onResize={onResize} showWho={showWho} filter={filter} members={members}
@@ -1713,7 +1873,15 @@ function App(){
       {isMob&&<AddModal newTask={newTask} onSave={commitNewTask} onCancel={()=>setNewTask(null)}
         onUpdateNew={(f,v)=>setNewTask(t=>({...t,[f]:v}))} openMenu={openMenu} members={members} groups={groups}/>}
 
-      {toast&&<div className="toast">{toast}</div>}
+      {toast&&<div className="toast">
+        <span>{typeof toast==="string"?toast:toast.msg}</span>
+        {typeof toast==="object"&&toast.action&&(
+          <button onClick={toast.onAction}
+            style={{background:"rgba(255,255,255,0.18)",border:"none",color:"#fff",borderRadius:4,padding:"3px 10px",fontFamily:"inherit",fontSize:12,fontWeight:700,cursor:"pointer",marginLeft:6,flexShrink:0}}>
+            {toast.action}
+          </button>
+        )}
+      </div>}
 
       {/* Floating Action Button - mobile only */}
       <button className="fab" onClick={()=>{
