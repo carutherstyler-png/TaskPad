@@ -28,6 +28,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0.4;cursor:pointer
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skeleton{background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:800px 100%;animation:shimmer 1.4s infinite;border-radius:6px;}
 .row-anim{animation:rowIn 0.18s ease both;}
 .row-flash{animation:flash 0.6s ease;}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#323338;color:#fff;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);animation:toastIn 0.3s ease;z-index:99998;white-space:nowrap;}
@@ -1363,6 +1365,35 @@ function AddModal({newTask,onSave,onCancel,onUpdateNew,openMenu,members,groups})
   );
 }
 
+// ── Skeleton loader ──
+function SkeletonBoard(){
+  const rows=[1,2,3,4,5];
+  return(
+    <div style={{padding:"0 0 28px"}}>
+      {[0,1].map(g=>(
+        <div key={g} style={{marginBottom:8,borderTop:"1px solid #e6e9ef",borderBottom:"1px solid #e6e9ef",background:"#fff"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #e6e9ef"}}>
+            <div className="skeleton" style={{width:11,height:11,borderRadius:"50%"}}/>
+            <div className="skeleton" style={{width:80+g*40,height:14}}/>
+            <div className="skeleton" style={{width:30,height:18,borderRadius:10,marginLeft:8}}/>
+          </div>
+          <div style={{padding:"8px 0"}}>
+            {rows.map(r=>(
+              <div key={r} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 16px",borderBottom:"1px solid #f5f6f8"}}>
+                <div className="skeleton" style={{width:14,height:14,borderRadius:"50%",flexShrink:0}}/>
+                <div className="skeleton" style={{flex:1,height:14,maxWidth:200+r*30}}/>
+                <div className="skeleton" style={{width:80,height:24,borderRadius:20,flexShrink:0}}/>
+                <div className="skeleton" style={{width:70,height:24,borderRadius:20,flexShrink:0}}/>
+                <div className="skeleton" style={{width:60,height:14,flexShrink:0}}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main App ──
 function App(){
   const[authUser,setAuthUser]=useState(undefined); // undefined=loading
@@ -1380,7 +1411,7 @@ function App(){
   const selectBoard=useCallback((b)=>{
     boardIdRef.current=b?.id||null;
     setBoard(b);
-    if(b)localStorage.setItem("docket_board",JSON.stringify(b));
+    if(b){localStorage.setItem("docket_board",JSON.stringify(b));setBoardLoading(true);}
     else localStorage.removeItem("docket_board");
   },[]);
   const[tasks,setTasks]=useState([]);
@@ -1398,6 +1429,8 @@ function App(){
   const[isOnline,setIsOnline]=useState(navigator.onLine);
   const[pendingDelete,setPendingDelete]=useState(null);
   const pendingDeleteRef=useRef(null);
+  const[hideDone,setHideDone]=useState(false);
+  const[boardLoading,setBoardLoading]=useState(false);
 
   // Check for invite code in URL
   const urlInviteCode=useMemo(()=>{
@@ -1460,7 +1493,8 @@ function App(){
 
     const unsubTasks=db.collection("boards").doc(bid).collection("tasks").onSnapshot(snap=>{
       setTasks(snap.docs.map(d=>({order:0,...d.data(),id:d.id})));
-    },err=>console.error("Tasks:",err));
+      setBoardLoading(false);
+    },err=>{console.error("Tasks:",err);setBoardLoading(false);});
 
     const unsubMembers=db.collection("boards").doc(bid).collection("members").onSnapshot(snap=>{
       setMembers(snap.docs.map(d=>d.data()));
@@ -1701,9 +1735,10 @@ function App(){
       if(search&&!t.name.toLowerCase().includes(search.toLowerCase()))return false;
       if(filter==="today"){if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<=today;}
       if(filter==="overdue"){if(!t.dueDate||t.status==="Done")return false;const d=parseTaskDate(t.dueDate);const dDay=new Date(d);dDay.setHours(0,0,0,0);return dDay<today;}
+      if(hideDone&&t.status==="Done")return false;
       return true;
     });
-  },[sorted,activeUserId,search,filter,members]);
+  },[sorted,activeUserId,search,filter,members,hideDone]);
 
   const displayTasks=useMemo(()=>
     pendingDelete?filtered.filter(t=>t.id!==pendingDelete.id):filtered
@@ -1797,6 +1832,10 @@ function App(){
           </div>
           <button onClick={()=>exportCSV(tasks,members)} title="Export CSV"
             style={{background:"none",border:"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:"#676879",cursor:"pointer"}}>↓ CSV</button>
+          <button onClick={()=>setHideDone(h=>!h)} title={hideDone?"Show completed tasks":"Hide completed tasks"}
+            style={{background:hideDone?"#f0f6ff":"none",border:hideDone?"1px solid #0073ea33":"1px solid #e6e9ef",borderRadius:6,padding:"5px 10px",fontFamily:"inherit",fontSize:12,color:hideDone?"#0073ea":"#676879",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+            {hideDone?"✓ Hiding done":"Hide done"}{doneCount>0&&<span style={{background:hideDone?"#0073ea":"#c5c7d4",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700}}>{doneCount}</span>}
+          </button>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <div style={{width:70,height:5,background:"#e6e9ef",borderRadius:3,overflow:"hidden"}}>
               <div style={{height:"100%",background:"#00c875",borderRadius:3,transition:"width 0.4s",width:tasks.length?`${(doneCount/tasks.length)*100}%`:"0%"}}/>
@@ -1825,7 +1864,8 @@ function App(){
             <span style={{fontSize:13,color:"#c5c7d4"}}>{filter==="today"?"No tasks due today.":"No overdue tasks."}</span>
           </div>
         )}
-        {filter==="all"&&groups.length===0&&(
+        {boardLoading&&<SkeletonBoard/>}
+        {!boardLoading&&filter==="all"&&groups.length===0&&(
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"72px 24px",gap:16}}>
             <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#0073ea,#9b59b6)",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/></svg>
@@ -1838,7 +1878,7 @@ function App(){
             </button>
           </div>
         )}
-        {groups.map(g=>(
+        {!boardLoading&&groups.map(g=>(
           <GroupSection key={g.id} group={g} tasks={displayTasks} openMenu={openMenu}
             onUpdate={updateTask} onDelete={deleteTask} onSwipeDelete={swipeDeleteTask} dragState={drag}
             onDragStart={onDragStart} onDragEnter={onDragEnter} onDragEnd={onDragEnd}
@@ -1849,7 +1889,7 @@ function App(){
             onUpdateNewTask={(f,v)=>setNewTask(t=>({...t,[f]:v}))}/>
         ))}
         {/* Add group */}
-        {filter==="all"&&<div style={{padding:"8px 16px 16px"}}>
+        {!boardLoading&&filter==="all"&&<div style={{padding:"8px 16px 16px"}}>
           {addingGroup?(
             <div style={{background:"#fff",border:"1.5px solid #0073ea",borderRadius:10,padding:"12px 14px",display:"flex",gap:8,alignItems:"center"}}>
               <div style={{width:11,height:11,borderRadius:"50%",background:GROUP_COLORS[groups.length%GROUP_COLORS.length],flexShrink:0}}/>
